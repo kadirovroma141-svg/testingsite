@@ -6,7 +6,7 @@ load_dotenv()
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 
-def _fix_db_url(url: str | None) -> str:
+def _fix_db_url(url) -> str:
     """SQLAlchemy requires 'postgresql://', but Supabase Connection Strings
     often start with 'postgres://'.  Fix silently."""
     if url and url.startswith("postgres://"):
