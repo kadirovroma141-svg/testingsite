@@ -1,0 +1,559 @@
+{% extends "base.html" %}
+{% block title %}Редактор теста{% endblock %}
+
+{% block extra_css %}
+<style>
+  .q-card { background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:14px;transition:all 0.2s; }
+  .q-card:hover { border-color:var(--border-act); }
+  .q-card.dragging { opacity:0.5;border-color:var(--primary); }
+  .opt-row { display:flex;align-items:center;gap:10px;margin-bottom:8px; }
+  .opt-correct-btn { width:28px;height:28px;border-radius:50%;border:2px solid var(--border);background:transparent;cursor:pointer;transition:all 0.15s;flex-shrink:0;font-size:14px; }
+  .opt-correct-btn.correct { border-color:var(--success);background:var(--success);color:#fff; }
+  #question-list { min-height:60px; }
+
+  /* Math editor symbol panel */
+  .math-tab { padding:6px 14px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-muted); cursor:pointer; font-size:13px; transition:all 0.15s; }
+  .math-tab:hover { border-color:var(--border-act); color:var(--text); }
+  .math-tab.active { background:var(--primary); border-color:var(--primary); color:#fff; }
+  .math-panel { display:grid; grid-template-columns:repeat(auto-fill,minmax(48px,1fr)); gap:6px; padding:12px; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; }
+  .mk { width:100%; aspect-ratio:1; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--text); cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center; transition:all 0.15s; }
+  .mk:hover { background:var(--primary); color:#fff; border-color:var(--primary); transform:scale(1.08); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-24" style="flex-wrap:wrap;gap:12px">
+  <div>
+    <div class="page-title" id="test-title-display">{{ test.title }}</div>
+    <div class="text-muted text-sm">{{ test.question_count }} вопросов · ID {{ test.id }}</div>
+  </div>
+  <div class="flex gap-8">
+    <a href="{{ url_for('teacher.tests') }}" class="btn btn-ghost">← Назад</a>
+    <a href="{{ url_for('teacher.assign_test', test_id=test.id) }}" class="btn btn-success" id="btn-assign">🔑 Назначить</a>
+  </div>
+</div>
+
+<div class="builder-layout">
+  <!-- Questions column -->
+  <div>
+    <div id="question-list"></div>
+    <button id="btn-add-q" class="btn btn-outline w-full" onclick="addQuestion()">➕ Добавить вопрос</button>
+  </div>
+
+  <!-- Sidebar settings -->
+  <div class="builder-sidebar">
+    <div class="card mb-16">
+      <div class="card-title">⚙️ Настройки теста</div>
+      <div class="form-group">
+        <label class="form-label">Название</label>
+        <input class="form-control" id="meta-title" value="{{ test.title }}" oninput="scheduleSave()">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Предмет</label>
+        <input class="form-control" id="meta-subject" value="{{ test.subject or '' }}" oninput="scheduleSave()">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Класс</label>
+        <input class="form-control" id="meta-grade" value="{{ test.grade_level or '' }}" oninput="scheduleSave()">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Сложность</label>
+        <select class="form-control" id="meta-diff" onchange="scheduleSave()">
+          <option value="easy"   {% if test.difficulty=='easy'   %}selected{% endif %}>Лёгкий</option>
+          <option value="medium" {% if test.difficulty=='medium' %}selected{% endif %}>Средний</option>
+          <option value="hard"   {% if test.difficulty=='hard'   %}selected{% endif %}>Сложный</option>
+        </select>
+      </div>
+      <div id="save-indicator" class="text-muted text-sm text-center" style="min-height:18px"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📊 Статистика</div>
+      <div id="sidebar-stats" class="text-muted text-sm">Загрузка...</div>
+    </div>
+  </div>
+</div>
+<div class="modal-backdrop" id="math-modal">
+  <div class="modal" style="max-width:860px; width:95%; padding:24px;" onclick="event.stopPropagation()">
+    <div class="flex items-center justify-between" style="margin-bottom:12px">
+      <div class="modal-title" style="margin-bottom:0">Редактор формул</div>
+      <button class="btn btn-ghost btn-sm" onclick="closeMathModal()" style="font-size:18px">✕</button>
+    </div>
+    
+    <!-- Live preview -->
+    <div style="margin-bottom:12px; border:2px solid var(--primary); border-radius:8px; padding:4px; background:var(--bg)">
+      <math-field id="math-field"
+                  math-virtual-keyboard-policy="manual"
+                  style="width:100%; font-size:28px; min-height:60px; padding:12px; border:none; background:transparent; color:var(--text); --caret-color:var(--primary)">
+      </math-field>
+    </div>
+
+    <!-- Symbol panel tabs -->
+    <div class="math-tabs" style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap">
+      <button class="math-tab active" onclick="switchMathTab(this,'tab-basic')">Основные</button>
+      <button class="math-tab" onclick="switchMathTab(this,'tab-greek')">Греческие</button>
+      <button class="math-tab" onclick="switchMathTab(this,'tab-ops')">Операторы</button>
+      <button class="math-tab" onclick="switchMathTab(this,'tab-struct')">Структуры</button>
+    </div>
+
+    <!-- Basic -->
+    <div class="math-panel" id="tab-basic">
+      <button data-latex="x" class="mk">𝑥</button>
+      <button data-latex="y" class="mk">𝑦</button>
+      <button data-latex="z" class="mk">𝑧</button>
+      <button data-latex="a" class="mk">𝑎</button>
+      <button data-latex="b" class="mk">𝑏</button>
+      <button data-latex="n" class="mk">𝑛</button>
+      <button data-latex="=" class="mk">=</button>
+      <button data-latex="+" class="mk">+</button>
+      <button data-latex="-" class="mk">−</button>
+      <button data-latex="\\cdot " class="mk">·</button>
+      <button data-latex="\\div " class="mk">÷</button>
+      <button data-latex="^2" class="mk">𝑥²</button>
+      <button data-latex="^3" class="mk">𝑥³</button>
+      <button data-latex="^{\\placeholder{}}" class="mk">𝑥ⁿ</button>
+      <button data-latex="_{\\placeholder{}}" class="mk">𝑥ₙ</button>
+      <button data-latex="\\sqrt{\\placeholder{}}" class="mk">√</button>
+      <button data-latex="\\sqrt[\\placeholder{}]{\\placeholder{}}" class="mk">ⁿ√</button>
+      <button data-latex="\\frac{\\placeholder{}}{\\placeholder{}}" class="mk" style="font-size:13px">a/b</button>
+      <button data-latex="\\pm " class="mk">±</button>
+      <button data-latex="\\infty " class="mk">∞</button>
+      <button data-latex="\\pi " class="mk">π</button>
+      <button data-latex="(" class="mk">(</button>
+      <button data-latex=")" class="mk">)</button>
+      <button data-latex="|" class="mk">|</button>
+      <button data-latex="1" class="mk">1</button>
+      <button data-latex="2" class="mk">2</button>
+      <button data-latex="3" class="mk">3</button>
+      <button data-latex="4" class="mk">4</button>
+      <button data-latex="5" class="mk">5</button>
+      <button data-latex="6" class="mk">6</button>
+      <button data-latex="7" class="mk">7</button>
+      <button data-latex="8" class="mk">8</button>
+      <button data-latex="9" class="mk">9</button>
+      <button data-latex="0" class="mk">0</button>
+    </div>
+
+    <!-- Greek -->
+    <div class="math-panel" id="tab-greek" style="display:none">
+      <button data-latex="\\alpha " class="mk">α</button>
+      <button data-latex="\\beta " class="mk">β</button>
+      <button data-latex="\\gamma " class="mk">γ</button>
+      <button data-latex="\\delta " class="mk">δ</button>
+      <button data-latex="\\epsilon " class="mk">ε</button>
+      <button data-latex="\\theta " class="mk">θ</button>
+      <button data-latex="\\lambda " class="mk">λ</button>
+      <button data-latex="\\mu " class="mk">μ</button>
+      <button data-latex="\\sigma " class="mk">σ</button>
+      <button data-latex="\\tau " class="mk">τ</button>
+      <button data-latex="\\phi " class="mk">φ</button>
+      <button data-latex="\\omega " class="mk">ω</button>
+      <button data-latex="\\Delta " class="mk">Δ</button>
+      <button data-latex="\\Sigma " class="mk">Σ</button>
+      <button data-latex="\\Omega " class="mk">Ω</button>
+      <button data-latex="\\Pi " class="mk">Π</button>
+    </div>
+
+    <!-- Operators -->
+    <div class="math-panel" id="tab-ops" style="display:none">
+      <button data-latex="\\leq " class="mk">≤</button>
+      <button data-latex="\\geq " class="mk">≥</button>
+      <button data-latex="\\neq " class="mk">≠</button>
+      <button data-latex="\\approx " class="mk">≈</button>
+      <button data-latex="\\lt " class="mk">&lt;</button>
+      <button data-latex="\\gt " class="mk">&gt;</button>
+      <button data-latex="\\sin " class="mk">sin</button>
+      <button data-latex="\\cos " class="mk">cos</button>
+      <button data-latex="\\tan " class="mk">tan</button>
+      <button data-latex="\\log " class="mk">log</button>
+      <button data-latex="\\ln " class="mk">ln</button>
+      <button data-latex="\\lim_{\\placeholder{}}" class="mk">lim</button>
+      <button data-latex="\\to " class="mk">→</button>
+      <button data-latex="\\Rightarrow " class="mk">⇒</button>
+      <button data-latex="\\in " class="mk">∈</button>
+      <button data-latex="\\notin " class="mk">∉</button>
+      <button data-latex="\\subset " class="mk">⊂</button>
+      <button data-latex="\\cup " class="mk">∪</button>
+      <button data-latex="\\cap " class="mk">∩</button>
+      <button data-latex="\\emptyset " class="mk">∅</button>
+    </div>
+
+    <!-- Structures -->
+    <div class="math-panel" id="tab-struct" style="display:none">
+      <button data-latex="\\int_{\\placeholder{}}^{\\placeholder{}}" class="mk" style="font-size:18px">∫</button>
+      <button data-latex="\\sum_{\\placeholder{}}^{\\placeholder{}}" class="mk" style="font-size:18px">Σ</button>
+      <button data-latex="\\prod_{\\placeholder{}}^{\\placeholder{}}" class="mk" style="font-size:18px">∏</button>
+      <button data-latex="\\binom{\\placeholder{}}{\\placeholder{}}" class="mk" style="font-size:12px">C(n,k)</button>
+      <button data-latex="\\vec{\\placeholder{}}" class="mk" style="font-size:14px">a⃗</button>
+      <button data-latex="\\overline{\\placeholder{}}" class="mk" style="font-size:14px">a̅</button>
+      <button data-latex="\\left(\\placeholder{}\\right)" class="mk">(…)</button>
+      <button data-latex="\\left[\\placeholder{}\\right]" class="mk">[…]</button>
+    </div>
+    
+    <div class="flex gap-12 justify-end" style="margin-top:16px">
+      <button class="btn btn-ghost" onclick="closeMathModal()">Отмена</button>
+      <button class="btn btn-primary" onclick="insertMath()">✓ Вставить формулу</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- MathLive -->
+<script src="https://unpkg.com/mathlive"></script>
+
+<script>
+// Disable MathLive's global virtual keyboard completely
+if (window.mathVirtualKeyboard) {
+  window.mathVirtualKeyboard.visible = false;
+}
+
+const TEST_ID = {{ test.id }};
+
+let questions  = [];
+let saveTimer  = null;
+
+// ===== Boot =====
+document.addEventListener('DOMContentLoaded', loadQuestions);
+
+async function loadQuestions() {
+  const resp = await fetch(`/api/tests/${TEST_ID}/questions`);
+  questions  = await resp.json();
+  renderAll();
+}
+
+function renderAll() {
+  const list = document.getElementById('question-list');
+  list.innerHTML = '';
+  questions.forEach((q, i) => list.appendChild(buildCard(q, i)));
+  updateStats();
+}
+
+// ===== Build card =====
+function buildCard(q, idx) {
+  const card = document.createElement('div');
+  card.className = 'q-card';
+  card.dataset.qid = q.id;
+
+  const typeLabel = {single:'Один ответ', multiple:'Несколько', text:'Текст'};
+
+  card.innerHTML = `
+    <div class="flex items-center justify-between mb-12">
+      <div class="flex items-center gap-8">
+        <span class="text-muted text-sm">Вопрос ${idx+1}</span>
+        <select class="form-control" style="width:auto;padding:4px 10px;font-size:12px"
+                onchange="updateField(${q.id},'question_type',this.value)">
+          <option value="single"   ${q.question_type==='single'?'selected':''}>Один ответ</option>
+          <option value="multiple" ${q.question_type==='multiple'?'selected':''}>Несколько</option>
+          <option value="text"     ${q.question_type==='text'?'selected':''}>Текст</option>
+        </select>
+        <span class="badge badge-muted" style="font-size:12px;padding:4px 8px">${q.question_type === 'single' ? '1 б.' : '2 б.'}</span>
+      </div>
+      <button onclick="deleteQuestion(${q.id})" class="btn btn-ghost btn-sm" title="Удалить">🗑</button>
+    </div>
+
+    <div class="flex items-center justify-between mb-4">
+      <span class="text-sm text-muted">Текст вопроса</span>
+      <button onclick="openMathModal('q-text-${q.id}')" class="btn btn-ghost btn-sm text-primary" style="padding:2px 6px" title="Вставить формулу">∑ Формула</button>
+    </div>
+    <textarea id="q-text-${q.id}" class="form-control mb-12" rows="2"
+              placeholder="Текст вопроса..."
+              oninput="updateField(${q.id},'text',this.value)">${escHtml(q.text)}</textarea>
+
+    <div class="mb-12">
+      ${q.image_url ? `
+        <div style="position:relative;display:inline-block">
+          <img src="${q.image_url}" style="max-height:120px;border-radius:4px;border:1px solid var(--border)">
+          <button onclick="updateField(${q.id},'image_url',null)" class="btn btn-danger btn-sm" style="position:absolute;top:-8px;right:-8px;border-radius:50%;width:24px;height:24px;padding:0;font-size:12px;line-height:1">✕</button>
+        </div>` : `
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('q-img-${q.id}').click()">📷 Добавить картинку вопроса</button>
+        <input type="file" id="q-img-${q.id}" hidden accept="image/*" onchange="uploadQImage(this, ${q.id})">`
+      }
+    </div>
+
+    <div class="options-list" id="opts-${q.id}">
+      ${q.options.map((o,oi)=>buildOption(q.id, o, oi, q.question_type)).join('')}
+    </div>
+    ${q.question_type!=='text' ? `<button onclick="addOption(${q.id})" class="btn btn-ghost btn-sm mt-8">+ Добавить вариант</button>` : ''}
+
+    <div class="form-group mt-12" style="margin-bottom:0">
+      <div class="flex gap-4">
+        <input id="q-exp-${q.id}" class="form-control" style="font-size:12px;flex:1" placeholder="Пояснение (необязательно)"
+               value="${escHtml(q.explanation||'')}"
+               oninput="updateField(${q.id},'explanation',this.value)">
+        <button onclick="openMathModal('q-exp-${q.id}')" class="btn btn-outline btn-icon" title="Вставить формулу">∑</button>
+      </div>
+    </div>
+  `;
+  return card;
+}
+
+function buildOption(qid, opt, idx, qtype) {
+  const isCorrect = opt.is_correct;
+  return `
+    <div class="opt-row" id="opt-row-${opt.id}">
+      <button class="opt-correct-btn ${isCorrect?'correct':''}" id="opt-btn-${opt.id}"
+              onclick="toggleCorrect(${qid},${opt.id},this)"
+              title="${isCorrect?'Правильный':'Отметить как правильный'}">
+        ${isCorrect?'✓':'○'}
+      </button>
+      <div class="flex gap-4" style="flex:1">
+        <input id="opt-text-${opt.id}" class="form-control" style="flex:1" value="${escHtml(opt.text)}"
+               placeholder="Вариант ответа..."
+               oninput="updateOptionText(${qid},${opt.id},this.value)">
+        <button onclick="openMathModal('opt-text-${opt.id}')" class="btn btn-outline btn-icon" title="Вставить формулу">∑</button>
+      </div>
+      
+      ${opt.image_url ? `
+        <div style="position:relative;display:inline-block">
+          <img src="${opt.image_url}" style="height:32px;border-radius:4px;border:1px solid var(--border);vertical-align:middle">
+          <button onclick="updateOptionImage(${qid},${opt.id},null)" class="btn btn-danger" style="position:absolute;top:-6px;right:-6px;border-radius:50%;width:16px;height:16px;padding:0;font-size:10px;line-height:1">✕</button>
+        </div>` : `
+        <button class="btn btn-outline btn-icon" title="Картинка варианта" onclick="document.getElementById('opt-img-${opt.id}').click()">📷</button>
+        <input type="file" id="opt-img-${opt.id}" hidden accept="image/*" onchange="uploadOptionImage(this, ${qid}, ${opt.id})">`
+      }
+      <button onclick="removeOption(${qid},${opt.id})" class="btn btn-ghost btn-icon" title="Удалить вариант">✕</button>
+    </div>`;
+}
+
+// ===== Field update =====
+function updateField(qid, field, value) {
+  const q = questions.find(q=>q.id===qid);
+  if (q) q[field] = value;
+  scheduleSaveQuestion(qid);
+  if (field === 'question_type') renderAll();
+}
+
+let qSaveTimers = {};
+function scheduleSaveQuestion(qid) {
+  clearTimeout(qSaveTimers[qid]);
+  qSaveTimers[qid] = setTimeout(() => saveQuestion(qid), 800);
+}
+
+async function saveQuestion(qid) {
+  const q = questions.find(q=>q.id===qid);
+  if (!q) return;
+  await fetch(`/api/questions/${qid}`, {
+    method: 'PATCH',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      text: q.text,
+      question_type: q.question_type,
+      points: q.points,
+      explanation: q.explanation,
+      image_url: q.image_url,
+      options: q.options
+    })
+  });
+  showSaved();
+}
+
+// ===== Options =====
+function toggleCorrect(qid, optId, btn) {
+  const q   = questions.find(q=>q.id===qid);
+  const opt = q.options.find(o=>o.id===optId);
+  
+  if (q.question_type === 'single') {
+    q.options.forEach(o=>o.is_correct=false);
+    opt.is_correct = true;
+  } else if (q.question_type === 'multiple') {
+    if (!opt.is_correct) {
+      const correctCount = q.options.filter(o=>o.is_correct).length;
+      if (correctCount >= 3) {
+        alert('Максимум 3 правильных варианта для этого типа вопроса.');
+        return;
+      }
+    }
+    opt.is_correct = !opt.is_correct;
+  }
+  
+  scheduleSaveQuestion(qid);
+  renderAll();
+}
+
+function updateOptionText(qid, optId, val) {
+  const q   = questions.find(q=>q.id===qid);
+  const opt = q.options.find(o=>o.id===optId);
+  if (opt) opt.text = val;
+  scheduleSaveQuestion(qid);
+}
+
+function updateOptionImage(qid, optId, url) {
+  const q   = questions.find(q=>q.id===qid);
+  const opt = q.options.find(o=>o.id===optId);
+  if (opt) opt.image_url = url;
+  scheduleSaveQuestion(qid);
+  renderAll();
+}
+
+async function uploadQImage(input, qid) {
+  if (!input.files[0]) return;
+  const fd = new FormData();
+  fd.append('image', input.files[0]);
+  input.value = '';
+  document.body.style.cursor = 'wait';
+  const resp = await fetch('/api/upload-image', {method:'POST', body:fd});
+  document.body.style.cursor = 'default';
+  const data = await resp.json();
+  if (data.url) updateField(qid, 'image_url', data.url);
+  else alert(data.error || 'Ошибка загрузки');
+}
+
+async function uploadOptionImage(input, qid, optId) {
+  if (!input.files[0]) return;
+  const fd = new FormData();
+  fd.append('image', input.files[0]);
+  input.value = '';
+  document.body.style.cursor = 'wait';
+  const resp = await fetch('/api/upload-image', {method:'POST', body:fd});
+  document.body.style.cursor = 'default';
+  const data = await resp.json();
+  if (data.url) updateOptionImage(qid, optId, data.url);
+  else alert(data.error || 'Ошибка загрузки');
+}
+
+function addOption(qid) {
+  const q = questions.find(q=>q.id===qid);
+  q.options.push({id: Date.now(), text:'', is_correct:false, order_index:q.options.length});
+  renderAll(); scheduleSaveQuestion(qid);
+}
+
+function removeOption(qid, optId) {
+  const q = questions.find(q=>q.id===qid);
+  q.options = q.options.filter(o=>o.id!==optId);
+  renderAll(); scheduleSaveQuestion(qid);
+}
+
+// ===== Add / Delete question =====
+async function addQuestion() {
+  const resp = await fetch(`/api/tests/${TEST_ID}/questions`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({question_type:'single', text:'', points:1, options:[
+      {text:'', is_correct:false},{text:'', is_correct:true}
+    ]})
+  });
+  const data = await resp.json();
+  await loadQuestions();
+}
+
+async function deleteQuestion(qid) {
+  if (!confirm('Удалить вопрос?')) return;
+  await fetch(`/api/questions/${qid}`, {method:'DELETE'});
+  questions = questions.filter(q=>q.id!==qid);
+  renderAll();
+}
+
+// ===== Meta save =====
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  document.getElementById('save-indicator').textContent = '...';
+  saveTimer = setTimeout(saveMeta, 900);
+}
+
+async function saveMeta() {
+  const payload = {
+    title: document.getElementById('meta-title').value,
+    subject: document.getElementById('meta-subject').value,
+    grade_level: document.getElementById('meta-grade').value,
+    difficulty: document.getElementById('meta-diff').value,
+  };
+  await fetch(`/api/tests/${TEST_ID}`, {
+    method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)
+  });
+  document.getElementById('test-title-display').textContent = payload.title;
+  showSaved();
+}
+
+function showSaved() {
+  const el = document.getElementById('save-indicator');
+  el.textContent = '✓ Сохранено';
+  el.style.color = 'var(--success)';
+  setTimeout(()=>{el.textContent='';}, 2000);
+}
+
+function updateStats() {
+  const total  = questions.length;
+  const points = questions.reduce((s,q)=>s+q.points,0);
+  document.getElementById('sidebar-stats').innerHTML =
+    `Вопросов: <strong>${total}</strong><br>Максимум баллов: <strong>${points}</strong>`;
+}
+
+function escHtml(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ===== MathLive Modal =====
+let currentMathTargetId = null;
+
+function mfInsert(latex) {
+  const mf = document.getElementById('math-field');
+  mf.executeCommand(['insert', latex, {focus: true, feedback: true}]);
+  mf.focus();
+}
+
+// Event delegation for all .mk buttons — read LaTeX from data-latex attribute
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('.mk[data-latex]');
+  if (btn) {
+    e.preventDefault();
+    mfInsert(btn.dataset.latex);
+  }
+});
+
+function switchMathTab(btn, panelId) {
+  document.querySelectorAll('.math-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.math-panel').forEach(p => p.style.display = 'none');
+  btn.classList.add('active');
+  document.getElementById(panelId).style.display = '';
+}
+
+function openMathModal(targetId) {
+  currentMathTargetId = targetId;
+  const mf = document.getElementById('math-field');
+  mf.value = '';
+  document.getElementById('math-modal').classList.add('open');
+  setTimeout(() => mf.focus(), 150);
+}
+
+function closeMathModal() {
+  const mf = document.getElementById('math-field');
+  mf.blur();
+  document.getElementById('math-modal').classList.remove('open');
+  currentMathTargetId = null;
+}
+
+function insertMath() {
+  if (!currentMathTargetId) return;
+  const mf = document.getElementById('math-field');
+  const latex = mf.value;
+  if (!latex) {
+    closeMathModal();
+    return;
+  }
+  
+  const targetEl = document.getElementById(currentMathTargetId);
+  if (!targetEl) {
+    closeMathModal();
+    return;
+  }
+
+  const wrapped = `$$${latex}$$`;
+  
+  // Insert at cursor position if supported
+  if (typeof targetEl.selectionStart === 'number') {
+    const start = targetEl.selectionStart;
+    const end = targetEl.selectionEnd;
+    const text = targetEl.value;
+    targetEl.value = text.substring(0, start) + wrapped + text.substring(end);
+    targetEl.selectionStart = targetEl.selectionEnd = start + wrapped.length;
+  } else {
+    targetEl.value += wrapped;
+  }
+  
+  // Trigger input event so it auto-saves
+  targetEl.dispatchEvent(new Event('input', { bubbles: true }));
+  
+  closeMathModal();
+}
+</script>
+{% endblock %}

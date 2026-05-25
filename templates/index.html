@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Начать тест{% endblock %}
+{% block meta_desc %}Введите PIN-код для прохождения теста{% endblock %}
+
+{% block content_public %}
+<div class="pin-page">
+  <div class="pin-card">
+    <div class="pin-logo">
+      <div class="pin-logo-ring">🎓</div>
+      <div class="pin-title">SchoolTest</div>
+      <div class="pin-subtitle">Введите PIN-код, чтобы начать</div>
+    </div>
+
+    <form method="POST" action="{{ url_for('student.index') }}">
+      <div class="form-group">
+        <label class="form-label" for="pin-field" style="text-align:center;display:block">PIN-код теста</label>
+        <input class="pin-input" type="text" id="pin-field" name="pin"
+               placeholder="• • • • • •"
+               maxlength="8" autocomplete="off" autofocus
+               oninput="this.value=this.value.toUpperCase().replace(/[^0-9A-Z]/g,'')">
+      </div>
+      <button type="submit" id="btn-enter-pin" class="btn btn-primary btn-lg w-full mt-8" style="justify-content:center">
+        Войти в тест →
+      </button>
+    </form>
+
+    <div style="margin-top:32px;padding-top:24px;border-top:1px solid var(--border);text-align:center">
+      <p class="text-muted text-sm">Учитель или администратор?</p>
+      <a href="{{ url_for('auth.login') }}" class="btn btn-outline btn-sm mt-8">Войти в панель управления</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Главная{% endblock %}
+
+{% block content %}
+<div class="topbar">
+  <div>
+    <div class="page-title">Привет, <span>{{ current_user.full_name.split()[0] }}</span> 👋</div>
+    <div class="page-subtitle">Обзор вашей активности</div>
+  </div>
+  <a href="{{ url_for('teacher.new_test') }}" class="btn btn-primary" id="btn-new-test">➕ Создать тест</a>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-icon blue">📝</div>
+    <div>
+      <div class="stat-value">{{ my_tests|length }}</div>
+      <div class="stat-label">Последних тестов</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon orange">🔑</div>
+    <div>
+      <div class="stat-value">{{ my_assigned|length }}</div>
+      <div class="stat-label">Активных PIN-кодов</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon green">✅</div>
+    <div>
+      <div class="stat-value">{{ total_results }}</div>
+      <div class="stat-label">Всего ответов</div>
+    </div>
+  </div>
+</div>
+
+<div class="grid-2">
+  <!-- Recent tests -->
+  <div class="card">
+    <div class="flex items-center justify-between mb-16">
+      <div class="card-title" style="margin:0">Последние тесты</div>
+      <a href="{{ url_for('teacher.tests') }}" class="btn btn-outline btn-sm">Все →</a>
+    </div>
+    {% if my_tests %}
+      {% for t in my_tests %}
+      <div class="flex items-center justify-between" style="padding:10px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-weight:600;font-size:14px">{{ t.title }}</div>
+          <div class="text-muted text-sm">{{ t.question_count }} вопросов</div>
+        </div>
+        <div class="flex gap-8">
+          <span class="badge {% if t.is_draft %}badge-warning{% else %}badge-success{% endif %}">
+            {{ 'Черновик' if t.is_draft else 'Готов' }}
+          </span>
+          <a href="{{ url_for('teacher.edit_test', test_id=t.id) }}" class="btn btn-ghost btn-sm">✏️</a>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state" style="padding:32px">
+        <div class="icon" style="font-size:36px">📝</div>
+        <h3 style="font-size:15px">Нет тестов</h3>
+        <a href="{{ url_for('teacher.new_test') }}" class="btn btn-primary btn-sm mt-8">Создать первый</a>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Active PINs -->
+  <div class="card">
+    <div class="flex items-center justify-between mb-16">
+      <div class="card-title" style="margin:0">Активные PIN-коды</div>
+      <a href="{{ url_for('teacher.assigned_list') }}" class="btn btn-outline btn-sm">Все →</a>
+    </div>
+    {% if my_assigned %}
+      {% for a in my_assigned %}
+      <div class="flex items-center justify-between" style="padding:10px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:22px;font-weight:800;letter-spacing:4px;color:var(--primary-h)">{{ a.pin_code }}</div>
+          <div class="text-muted text-sm">{{ a.test.title }}</div>
+        </div>
+        <span class="badge {% if a.is_active %}badge-success{% else %}badge-muted{% endif %}">
+          {{ '● Активен' if a.is_active else '○ Неактивен' }}
+        </span>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state" style="padding:32px">
+        <div class="icon" style="font-size:36px">🔑</div>
+        <h3 style="font-size:15px">Нет PIN-кодов</h3>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

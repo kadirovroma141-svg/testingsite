@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Создать тест{% endblock %}
+
+{% block content %}
+<div class="topbar">
+  <div>
+    <div class="page-title">Создать <span>новый тест</span></div>
+    <div class="page-subtitle">Выберите способ создания</div>
+  </div>
+  <a href="{{ url_for('teacher.tests') }}" class="btn btn-outline">← Назад</a>
+</div>
+
+<div class="grid-3" style="max-width:900px">
+  <!-- Manual -->
+  <div class="card" style="text-align:center;cursor:pointer;transition:all 0.2s" onclick="location.href='{{ url_for('teacher.new_test_manual') }}'">
+    <div style="font-size:48px;margin-bottom:16px">✍️</div>
+    <h3 style="font-size:16px;font-weight:700;margin-bottom:8px">Ручной режим</h3>
+    <p class="text-muted text-sm">Конструктор вопросов — добавляйте, редактируйте и переставляйте вопросы вручную.</p>
+    <a href="{{ url_for('teacher.new_test_manual') }}" id="btn-manual" class="btn btn-primary mt-16">Начать →</a>
+  </div>
+
+  <!-- DOCX -->
+  <div class="card" style="text-align:center;cursor:pointer;transition:all 0.2s" onclick="location.href='{{ url_for('teacher.new_test_docx') }}'">
+    <div style="font-size:48px;margin-bottom:16px">📄</div>
+    <h3 style="font-size:16px;font-weight:700;margin-bottom:8px">Импорт из .docx</h3>
+    <p class="text-muted text-sm">Загрузите Word-документ по шаблону — система автоматически создаст тест.</p>
+    <a href="{{ url_for('teacher.new_test_docx') }}" id="btn-docx" class="btn btn-outline mt-16">Загрузить файл →</a>
+  </div>
+
+  <!-- AI -->
+  <div class="card" style="text-align:center;position:relative;overflow:hidden">
+    <div style="position:absolute;top:10px;right:10px"><span class="badge badge-purple">✨ AI</span></div>
+    <div style="font-size:48px;margin-bottom:16px">🤖</div>
+    <h3 style="font-size:16px;font-weight:700;margin-bottom:8px">AI-Генерация</h3>
+    <p class="text-muted text-sm">Введите тему — ИИ создаст вопросы автоматически за несколько секунд.</p>
+    <button id="btn-ai-open" onclick="document.getElementById('ai-modal').classList.add('open')"
+            class="btn btn-primary mt-16" style="background:linear-gradient(135deg,#6366f1,#a78bfa)">
+      Сгенерировать ✨
+    </button>
+  </div>
+</div>
+
+<!-- AI Modal -->
+<div class="modal-backdrop" id="ai-modal">
+  <div class="modal">
+    <div class="modal-title">✨ AI-генерация теста</div>
+    <div class="form-group">
+      <label class="form-label">Тема теста</label>
+      <input class="form-control" type="text" id="ai-topic" placeholder="Например: Фотосинтез у растений">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Сложность</label>
+        <select class="form-control" id="ai-difficulty">
+          <option value="easy">Лёгкий</option>
+          <option value="medium" selected>Средний</option>
+          <option value="hard">Сложный</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Количество вопросов</label>
+        <input class="form-control" type="number" id="ai-count" value="10" min="3" max="50">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Предмет (необязательно)</label>
+      <input class="form-control" type="text" id="ai-subject" placeholder="Биология">
+    </div>
+    <div class="flex gap-12 mt-16">
+      <button id="btn-ai-generate" class="btn btn-primary" onclick="generateAI()" style="background:linear-gradient(135deg,#6366f1,#a78bfa)">
+        ✨ Генерировать
+      </button>
+      <button class="btn btn-ghost" onclick="document.getElementById('ai-modal').classList.remove('open')">Отмена</button>
+    </div>
+    <div id="ai-status" style="margin-top:16px;display:none" class="text-muted text-sm text-center">
+      <span class="spinner"></span> Генерирую вопросы...
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function generateAI() {
+  const topic  = document.getElementById('ai-topic').value.trim();
+  if (!topic) { alert('Введите тему!'); return; }
+  const btn    = document.getElementById('btn-ai-generate');
+  const status = document.getElementById('ai-status');
+  btn.disabled = true;
+  status.style.display = 'block';
+
+  try {
+    const resp = await fetch('/api/generate-test', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        topic:      topic,
+        difficulty: document.getElementById('ai-difficulty').value,
+        count:      parseInt(document.getElementById('ai-count').value),
+        subject:    document.getElementById('ai-subject').value.trim(),
+        language:   'ru'
+      })
+    });
+    const data = await resp.json();
+    if (data.error) { alert(data.error); return; }
+    window.location.href = `/teacher/tests/${data.test_id}/edit`;
+  } catch(e) {
+    alert('Ошибка: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    status.style.display = 'none';
+  }
+}
+
+// Close modal on backdrop click
+document.getElementById('ai-modal').addEventListener('click', function(e) {
+  if (e.target === this) this.classList.remove('open');
+});
+</script>
+{% endblock %}

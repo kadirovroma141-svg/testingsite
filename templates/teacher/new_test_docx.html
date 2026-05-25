@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Импорт из DOCX{% endblock %}
+
+{% block content %}
+<div class="topbar">
+  <div>
+    <div class="page-title">Импорт из <span>.docx</span></div>
+  </div>
+  <a href="{{ url_for('teacher.new_test') }}" class="btn btn-outline">← Назад</a>
+</div>
+
+<div class="grid-2" style="align-items:start">
+  <div class="card">
+    <div class="card-title">Загрузить файл</div>
+    <form method="POST" enctype="multipart/form-data" id="docx-form">
+      <div id="drop-zone" style="border:2px dashed var(--border);border-radius:var(--radius);padding:48px;text-align:center;cursor:pointer;transition:all 0.2s"
+           ondragover="event.preventDefault();this.style.borderColor='var(--primary)'"
+           ondragleave="this.style.borderColor='var(--border)'"
+           ondrop="handleDrop(event)">
+        <div style="font-size:48px;margin-bottom:12px">📄</div>
+        <p style="font-weight:600;margin-bottom:4px">Перетащите .docx файл сюда</p>
+        <p class="text-muted text-sm">или</p>
+        <label class="btn btn-outline mt-8" style="cursor:pointer">
+          Выбрать файл
+          <input type="file" name="docx_file" id="docx-file" accept=".docx" style="display:none" onchange="showFile(this)">
+        </label>
+        <p id="file-name" class="text-muted text-sm mt-8"></p>
+      </div>
+      <button type="submit" id="btn-import" class="btn btn-primary w-full mt-16" style="justify-content:center">
+        📥 Импортировать тест
+      </button>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📋 Шаблон документа</div>
+    <pre style="background:var(--bg);border-radius:var(--radius-sm);padding:16px;font-size:12px;overflow-x:auto;border:1px solid var(--border);line-height:1.8;color:var(--text-muted)">Название теста
+
+Subject: Математика
+Grade: 10
+Difficulty: medium
+---
+1. Чему равно производное sin(x)?
+   A) -cos(x)
+   B+) cos(x)
+   C) sin(x)
+   D) -sin(x)
+Points: 1
+Explanation: По таблице производных.
+---
+2. Текст второго вопроса [multiple]
+   A+) Правильный вариант
+   B) Неправильный
+   C+) Тоже правильный
+   D) Неправильный</pre>
+    <div class="text-muted text-sm mt-8">
+      <strong>Правила:</strong>
+      <ul style="padding-left:16px;margin-top:4px;line-height:2">
+        <li>Вопросы нумеруются: <code>1.</code>, <code>2.</code> …</li>
+        <li>Варианты: <code>A)</code>, <code>B)</code> … <code>H)</code></li>
+        <li>Правильный ответ: <code>A+)</code> или <code>B+)</code></li>
+        <li>Тип: <code>[single]</code>, <code>[multiple]</code>, <code>[text]</code></li>
+        <li>Разделитель: <code>---</code></li>
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showFile(input) {
+  if (input.files[0]) {
+    document.getElementById('file-name').textContent = '✅ ' + input.files[0].name;
+    document.getElementById('drop-zone').style.borderColor = 'var(--success)';
+  }
+}
+function handleDrop(e) {
+  e.preventDefault();
+  const file = e.dataTransfer.files[0];
+  if (!file || !file.name.endsWith('.docx')) { alert('Только .docx файлы!'); return; }
+  const dt = new DataTransfer();
+  dt.items.add(file);
+  document.getElementById('docx-file').files = dt.files;
+  showFile(document.getElementById('docx-file'));
+}
+</script>
+{% endblock %}

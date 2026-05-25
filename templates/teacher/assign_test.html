@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Назначить тест{% endblock %}
+
+{% block content %}
+<div class="topbar">
+  <div>
+    <div class="page-title">Назначить <span>тест</span></div>
+    <div class="page-subtitle">{{ test.title }}</div>
+  </div>
+  <a href="{{ url_for('teacher.edit_test', test_id=test.id) }}" class="btn btn-outline">← Назад</a>
+</div>
+
+<div style="max-width:600px">
+  <div class="card">
+    <form method="POST">
+      <div class="form-group">
+        <label class="form-label">Метка (напр. "10-А, май 2026")</label>
+        <input class="form-control" name="label" id="assign-label" placeholder="Необязательно">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Ограничение времени (мин.)</label>
+          <input class="form-control" type="number" name="time_limit_minutes" id="assign-time"
+                 placeholder="Без ограничений" min="1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Макс. попыток</label>
+          <input class="form-control" type="number" name="max_attempts" id="assign-attempts" value="1" min="1">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Доступен с</label>
+          <input class="form-control" type="datetime-local" name="available_from" id="assign-from">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Доступен до</label>
+          <input class="form-control" type="datetime-local" name="available_until" id="assign-until">
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px">
+        <label class="toggle-wrap">
+          <label class="toggle"><input type="checkbox" name="shuffle_questions" id="assign-shuffleq"><span class="toggle-slider"></span></label>
+          Перемешивать вопросы
+        </label>
+        <label class="toggle-wrap">
+          <label class="toggle"><input type="checkbox" name="shuffle_options" id="assign-shuffleo"><span class="toggle-slider"></span></label>
+          Перемешивать варианты ответов
+        </label>
+        <label class="toggle-wrap">
+          <label class="toggle"><input type="checkbox" name="show_results_to_student" id="assign-showres" checked><span class="toggle-slider"></span></label>
+          Показывать результаты ученику сразу
+        </label>
+      </div>
+      <button type="submit" id="btn-create-pin" class="btn btn-success btn-lg w-full" style="justify-content:center">
+        🔑 Сгенерировать PIN-код
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Панель администратора{% endblock %}
+
+{% block content %}
+<div class="topbar">
+  <div>
+    <div class="page-title">Добро пожаловать, <span>{{ current_user.full_name.split()[0] }}</span></div>
+    <div class="page-subtitle">Обзор системы тестирования</div>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-icon purple">👨‍🏫</div>
+    <div>
+      <div class="stat-value">{{ stats.teachers }}</div>
+      <div class="stat-label">Учителей</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon blue">📝</div>
+    <div>
+      <div class="stat-value">{{ stats.tests }}</div>
+      <div class="stat-label">Тестов создано</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon orange">🔑</div>
+    <div>
+      <div class="stat-value">{{ stats.assigned }}</div>
+      <div class="stat-label">PIN-кодов выдано</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon green">✅</div>
+    <div>
+      <div class="stat-value">{{ stats.results }}</div>
+      <div class="stat-label">Тестов пройдено</div>
+    </div>
+  </div>
+</div>
+
+<!-- Recent results -->
+<div class="card">
+  <div class="flex items-center justify-between mb-16">
+    <div class="card-title" style="margin:0">Последние результаты</div>
+    <a href="{{ url_for('admin.results') }}" class="btn btn-outline btn-sm">Все результаты →</a>
+  </div>
+  {% if recent_results %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Ученик</th><th>Класс</th><th>Тест</th><th>PIN</th><th>Результат</th><th>Дата</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in recent_results %}
+        <tr>
+          <td><strong>{{ r.student_full_name }}</strong></td>
+          <td>{{ r.student_class }}</td>
+          <td>{{ r.assigned_test.test.title }}</td>
+          <td><span class="badge badge-purple">{{ r.assigned_test.pin_code }}</span></td>
+          <td>
+            {% if r.is_completed %}
+              <span class="badge {% if r.percentage >= 70 %}badge-success{% elif r.percentage >= 40 %}badge-warning{% else %}badge-danger{% endif %}">
+                {{ r.percentage }}%
+              </span>
+            {% else %}
+              <span class="badge badge-muted">В процессе</span>
+            {% endif %}
+          </td>
+          <td class="text-muted text-sm">{{ r.started_at.strftime('%d.%m.%Y %H:%M') }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="empty-state">
+      <div class="icon">📭</div>
+      <h3>Пока нет результатов</h3>
+      <p>Когда ученики начнут проходить тесты, результаты появятся здесь.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

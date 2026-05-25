@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Мои тесты{% endblock %}
+
+{% block content %}
+<div class="topbar">
+  <div>
+    <div class="page-title">Мои <span>тесты</span></div>
+    <div class="page-subtitle">{{ pagination.total }} тестов</div>
+  </div>
+  <a href="{{ url_for('teacher.new_test') }}" class="btn btn-primary" id="btn-create-test">➕ Создать тест</a>
+</div>
+
+{% if pagination.items %}
+<div class="grid-3">
+  {% for t in pagination.items %}
+  <div class="card" style="display:flex;flex-direction:column;gap:12px">
+    <div>
+      <div class="flex items-center justify-between mb-8">
+        <span class="badge {% if t.is_draft %}badge-warning{% else %}badge-success{% endif %}">
+          {{ 'Черновик' if t.is_draft else '✓ Готов' }}
+        </span>
+        <span class="badge badge-muted">{{ t.creation_method|upper }}</span>
+      </div>
+      <div style="font-weight:700;font-size:15px;margin-bottom:4px">{{ t.title }}</div>
+      <div class="text-muted text-sm">
+        {% if t.subject %}{{ t.subject }} · {% endif %}
+        {{ t.question_count }} вопросов
+      </div>
+    </div>
+    <div class="flex gap-8 mt-8" style="flex-wrap:wrap">
+      <a href="{{ url_for('teacher.edit_test', test_id=t.id) }}" class="btn btn-outline btn-sm" id="btn-edit-{{ t.id }}">✏️ Редактировать</a>
+      <a href="{{ url_for('teacher.assign_test', test_id=t.id) }}" class="btn btn-primary btn-sm" id="btn-assign-{{ t.id }}">🔑 Назначить</a>
+      <form method="POST" action="{{ url_for('teacher.delete_test', test_id=t.id) }}"
+            onsubmit="return confirm('Удалить тест «{{ t.title }}»?')" style="margin:0">
+        <button type="submit" class="btn btn-ghost btn-sm" id="btn-del-test-{{ t.id }}">🗑</button>
+      </form>
+    </div>
+    <div class="text-muted text-sm" style="margin-top:auto;padding-top:8px;border-top:1px solid var(--border)">
+      {{ t.updated_at.strftime('%d.%m.%Y %H:%M') }}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+<!-- Pagination -->
+<div class="pagination">
+  <a href="{{ url_for('teacher.tests', page=pagination.prev_num) }}"
+     class="page-btn {% if not pagination.has_prev %}disabled{% endif %}">← Пред.</a>
+  {% for p in pagination.iter_pages() %}
+    {% if p %}
+      <a href="{{ url_for('teacher.tests', page=p) }}"
+         class="page-btn {% if p == pagination.page %}active{% endif %}">{{ p }}</a>
+    {% else %}<span class="page-btn disabled">…</span>{% endif %}
+  {% endfor %}
+  <a href="{{ url_for('teacher.tests', page=pagination.next_num) }}"
+     class="page-btn {% if not pagination.has_next %}disabled{% endif %}">След. →</a>
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="icon">📝</div>
+  <h3>У вас пока нет тестов</h3>
+  <p>Создайте первый тест одним из трёх способов.</p>
+  <a href="{{ url_for('teacher.new_test') }}" class="btn btn-primary mt-16">➕ Создать тест</a>
+</div>
+{% endif %}
+{% endblock %}

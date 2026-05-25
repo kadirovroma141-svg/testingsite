@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Учителя{% endblock %}
+
+{% block content %}
+<div class="topbar">
+  <div>
+    <div class="page-title">Управление <span>учителями</span></div>
+    <div class="page-subtitle">{{ teachers|length }} учителей в системе</div>
+  </div>
+  <a href="{{ url_for('auth.register') }}" class="btn btn-primary" id="btn-add-teacher">➕ Добавить учителя</a>
+</div>
+
+<div class="card">
+  {% if teachers %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>ФИО</th><th>Логин</th><th>Email</th><th>Статус</th><th>Действия</th></tr>
+      </thead>
+      <tbody>
+        {% for t in teachers %}
+        <tr>
+          <td>
+            <div class="flex items-center gap-12">
+              <div class="user-avatar" style="width:34px;height:34px;font-size:14px">{{ t.full_name[0] }}</div>
+              <strong>{{ t.full_name }}</strong>
+            </div>
+          </td>
+          <td class="text-muted">{{ t.username }}</td>
+          <td class="text-muted">{{ t.email }}</td>
+          <td>
+            <span class="badge {% if t.is_active %}badge-success{% else %}badge-danger{% endif %}">
+              {{ '✓ Активен' if t.is_active else '✗ Отключён' }}
+            </span>
+          </td>
+          <td>
+            <div class="flex gap-8">
+              <form method="POST" action="{{ url_for('admin.toggle_teacher', uid=t.id) }}" style="display:inline">
+                <button type="submit" class="btn btn-outline btn-sm" id="btn-toggle-{{ t.id }}">
+                  {{ '🔒 Откл.' if t.is_active else '🔓 Вкл.' }}
+                </button>
+              </form>
+              <form method="POST" action="{{ url_for('admin.delete_teacher', uid=t.id) }}"
+                    onsubmit="return confirm('Удалить учителя {{ t.full_name }}? Все его тесты также будут удалены!')" style="display:inline">
+                <button type="submit" class="btn btn-danger btn-sm" id="btn-del-{{ t.id }}">🗑</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="empty-state">
+      <div class="icon">👨‍🏫</div>
+      <h3>Учителей ещё нет</h3>
+      <p>Добавьте первого учителя, чтобы начать.</p>
+      <a href="{{ url_for('auth.register') }}" class="btn btn-primary mt-16">➕ Добавить учителя</a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block title %}{{ test.title }}{% endblock %}
+
+{% block content_public %}
+<div class="test-page" style="margin:-32px;min-height:100vh" id="test-app">
+  <!-- Header -->
+  <header class="test-header">
+    <div>
+      <div style="font-weight:700;font-size:15px">{{ test.title }}</div>
+      <div class="text-muted text-sm">{{ result.student_full_name }} · {{ result.student_class }}</div>
+    </div>
+    <div class="flex items-center gap-16">
+      <div>
+        <div class="text-muted text-sm text-center" style="font-size:11px">Прогресс</div>
+        <div class="test-progress-bar"><div class="test-progress-fill" id="progress-fill" style="width:0%"></div></div>
+      </div>
+      {% if time_limit_minutes %}
+      <div>
+        <div class="text-muted text-sm text-center" style="font-size:11px">Осталось</div>
+        <div class="test-timer" id="timer">{{ '%02d:%02d'|format(time_limit_minutes, 0) }}</div>
+      </div>
+      {% endif %}
+      <button id="btn-submit-test" onclick="submitTest()" class="btn btn-success">Завершить тест</button>
+    </div>
+  </header>
+
+  <!-- Questions -->
+  <div class="test-body">
+    {% for item in questions_data %}
+    {% set q = item.question %}
+    {% set opts = item.options %}
+    <div class="question-card" id="qcard-{{ q.id }}">
+      <div class="question-num">Вопрос {{ loop.index }} из {{ questions_data|length }}
+        {% if q.question_type == 'multiple' %} · <span style="color:var(--warning)">Несколько ответов</span>{% endif %}
+        <span style="float:right;color:var(--primary-h)">{{ q.points }} б.</span>
+      </div>
+      <p class="question-text" style="white-space:pre-wrap">{{ q.text }}</p>
+      {% if q.image_url %}
+        <div style="margin-bottom: 16px;">
+          <img src="{{ q.image_url }}" style="max-height: 250px; border-radius: 6px; border: 1px solid var(--border); max-width: 100%;">
+        </div>
+      {% endif %}      {% if q.question_type != 'text' %}
+      <div class="options-list" data-qid="{{ q.id }}" data-type="{{ q.question_type }}">
+        {% for opt in opts %}
+        <div class="option-item" id="opt-{{ opt.id }}" onclick="selectOption(this, {{ q.id }}, {{ opt.id }}, '{{ q.question_type }}')">
+          <div class="option-marker">{{ loop.index }}</div>
+          <div class="option-text" style="flex:1; white-space:pre-wrap">
+            {{ opt.text }}
+            {% if opt.image_url %}
+              <div style="margin-top: 8px;">
+                <img src="{{ opt.image_url }}" style="max-height: 150px; border-radius: 4px; border: 1px solid var(--border); max-width: 100%;">
+              </div>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <textarea class="form-control" rows="4" placeholder="Введите ваш ответ..."
+                id="text-{{ q.id }}" style="margin-top:8px"></textarea>
+      {% endif %}
+    </div>
+    {% endfor %}
+
+    <button onclick="submitTest()" class="btn btn-success btn-lg w-full" id="btn-submit-bottom" style="justify-content:center">
+      ✅ Завершить и отправить тест
+    </button>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="confirm-modal">
+  <div class="modal">
+    <div class="modal-title">⚠️ Завершить тест?</div>
+    <p class="text-muted" style="margin-bottom:20px">Вы ответили на <strong id="answered-count">0</strong> из <strong>{{ questions_data|length }}</strong> вопросов. После отправки изменить ответы нельзя.</p>
+    <div class="flex gap-12">
+      <button id="btn-confirm-submit" class="btn btn-success" onclick="confirmSubmit()">Отправить</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('confirm-modal').classList.remove('open')">Вернуться</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const ANSWERS    = {};   // { qid: [optId, ...] or "text string" }
+const TOTAL_Q    = {{ questions_data|length }};
+const TIME_LIMIT = {{ time_limit_minutes or 0 }};
+let timerInterval = null;
+
+// ===== Timer =====
+if (TIME_LIMIT > 0) {
+  let remaining = TIME_LIMIT * 60;
+  const timerEl = document.getElementById('timer');
+  timerInterval = setInterval(() => {
+    remaining--;
+    const m = Math.floor(remaining / 60);
+    const s = remaining % 60;
+    timerEl.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    timerEl.className = 'test-timer' + (remaining < 60 ? ' danger' : remaining < 180 ? ' warning' : '');
+    if (remaining <= 0) { clearInterval(timerInterval); confirmSubmit(); }
+  }, 1000);
+}
+
+// ===== Option selection =====
+function selectOption(el, qid, optId, type) {
+  const list = el.parentElement;
+  if (type === 'single') {
+    list.querySelectorAll('.option-item').forEach(o => o.classList.remove('selected'));
+    ANSWERS[qid] = [optId];
+  } else {
+    if (el.classList.contains('selected')) {
+      el.classList.remove('selected');
+      ANSWERS[qid] = (ANSWERS[qid] || []).filter(id => id !== optId);
+    } else {
+      ANSWERS[qid] = [...(ANSWERS[qid] || []), optId];
+    }
+  }
+  el.classList.toggle('selected', type !== 'single' ? ANSWERS[qid].includes(optId) : true);
+  if (type === 'single') el.classList.add('selected');
+  updateProgress();
+}
+
+// Update text answers on change
+document.querySelectorAll('textarea[id^="text-"]').forEach(ta => {
+  const qid = parseInt(ta.id.split('-')[1]);
+  ta.addEventListener('input', () => { ANSWERS[qid] = ta.value; updateProgress(); });
+});
+
+function updateProgress() {
+  const answered = Object.keys(ANSWERS).filter(k => {
+    const v = ANSWERS[k];
+    return Array.isArray(v) ? v.length > 0 : v.trim() !== '';
+  }).length;
+  document.getElementById('progress-fill').style.width = (answered / TOTAL_Q * 100) + '%';
+}
+
+// ===== Submit =====
+function submitTest() {
+  const answered = Object.keys(ANSWERS).filter(k => {
+    const v = ANSWERS[k];
+    return Array.isArray(v) ? v.length > 0 : (v||'').trim() !== '';
+  }).length;
+  document.getElementById('answered-count').textContent = answered;
+  document.getElementById('confirm-modal').classList.add('open');
+}
+
+async function confirmSubmit() {
+  clearInterval(timerInterval);
+  document.getElementById('confirm-modal').classList.remove('open');
+  document.getElementById('btn-submit-test').disabled = true;
+  document.getElementById('btn-submit-bottom').disabled = true;
+
+  // Collect text answers
+  document.querySelectorAll('textarea[id^="text-"]').forEach(ta => {
+    const qid = parseInt(ta.id.split('-')[1]);
+    ANSWERS[qid] = ta.value;
+  });
+
+  try {
+    const resp = await fetch('/test/submit', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({answers: ANSWERS})
+    });
+    const data = await resp.json();
+    if (data.ok) window.location.href = data.redirect;
+    else alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+  } catch(e) {
+    alert('Ошибка соединения: ' + e.message);
+  }
+}
+</script>
+{% endblock %}

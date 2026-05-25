@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Детали результата{% endblock %}
+
+{% block content %}
+<div class="topbar">
+  <div>
+    <div class="page-title"><span>{{ result.student_full_name }}</span></div>
+    <div class="page-subtitle">{{ result.student_class }} · PIN {{ result.assigned_test.pin_code }}</div>
+  </div>
+  <a href="{{ url_for('teacher.results') }}" class="btn btn-outline">← Назад</a>
+</div>
+
+<!-- Score hero -->
+<div class="card mb-24" style="text-align:center;background:radial-gradient(ellipse at 50% 0%,rgba(99,102,241,0.15) 0%,transparent 60%)">
+  <div style="font-size:64px;font-weight:800;color:var(--primary-h)">{{ result.percentage }}%</div>
+  <div style="font-size:18px;font-weight:600;margin-bottom:4px">{{ result.score }} / {{ result.max_score }} баллов</div>
+  <div class="text-muted text-sm">
+    {{ result.assigned_test.test.title }} ·
+    {{ result.started_at.strftime('%d.%m.%Y %H:%M') }}
+    {% if result.duration_seconds %}· {{ (result.duration_seconds // 60)|int }} мин. {{ result.duration_seconds % 60 }} сек.{% endif %}
+  </div>
+</div>
+
+<!-- Answer breakdown -->
+{% for ra in answers %}
+<div class="card mb-12" style="border-left:3px solid {% if ra.is_correct %}var(--success){% elif ra.is_correct == false %}var(--danger){% else %}var(--warning){% endif %}">
+  <div class="flex items-center justify-between mb-8">
+    <span class="text-muted text-sm">Вопрос {{ loop.index }}</span>
+    <span class="badge {% if ra.is_correct %}badge-success{% elif ra.is_correct == false %}badge-danger{% else %}badge-warning{% endif %}">
+      {% if ra.is_correct %}✓ {{ ra.points_earned }} б.
+      {% elif ra.is_correct == false %}✗ 0 б.
+      {% else %}? Проверить вручную{% endif %}
+    </span>
+  </div>
+  <p style="font-weight:500;margin-bottom:10px;white-space:pre-wrap">{{ ra.question.text }}</p>
+  {% if ra.question.image_url %}
+    <div style="margin-bottom: 16px;">
+      <img src="{{ ra.question.image_url }}" style="max-height: 200px; border-radius: 4px; border: 1px solid var(--border); max-width: 100%;">
+    </div>
+  {% endif %}
+  {% if ra.question.question_type != 'text' %}
+    {% for opt in ra.question.options.all() %}
+    <div class="option-item {% if opt.id in ra.selected_ids_list %}{% if opt.is_correct %}correct{% else %}wrong{% endif %}{% elif opt.is_correct %}correct{% endif %}"
+         style="pointer-events:none;padding:8px 12px;margin-bottom:6px">
+      <div class="option-marker">{{ loop.index }}</div>
+      <div class="option-text" style="white-space:pre-wrap">
+        {{ opt.text }}
+        {% if opt.image_url %}
+          <div style="margin-top: 4px;">
+            <img src="{{ opt.image_url }}" style="max-height: 100px; border-radius: 4px; border: 1px solid var(--border); max-width: 100%;">
+          </div>
+        {% endif %}
+      </div>
+      {% if opt.is_correct %}<span class="badge badge-success" style="margin-left:auto">✓</span>{% endif %}
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="form-control" style="pointer-events:none;color:var(--text-muted)">{{ ra.text_answer or '(нет ответа)' }}</div>
+  {% endif %}
+  {% if ra.question.explanation %}
+    <div class="text-muted text-sm mt-8">💡 {{ ra.question.explanation }}</div>
+  {% endif %}
+</div>
+{% endfor %}
+{% endblock %}

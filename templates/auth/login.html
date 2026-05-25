@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Войти на платформу{% endblock %}
+
+{% block content_public %}
+<div class="pin-page">
+  <div class="pin-card">
+    <div class="pin-logo">
+      <div class="pin-logo-ring">🎓</div>
+      <div class="pin-title">Вход для персонала</div>
+      <div class="pin-subtitle">Администраторы и учителя</div>
+    </div>
+
+    <form method="POST" action="{{ url_for('auth.login') }}">
+      <div class="form-group">
+        <label class="form-label" for="username">Логин</label>
+        <input class="form-control" type="text" id="username" name="username"
+               placeholder="Введите логин" required autofocus>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="password">Пароль</label>
+        <input class="form-control" type="password" id="password" name="password"
+               placeholder="••••••••" required>
+      </div>
+      <div class="flex items-center gap-8 mt-8 mb-24">
+        <label class="toggle-wrap text-sm text-muted">
+          <label class="toggle">
+            <input type="checkbox" name="remember" id="remember">
+            <span class="toggle-slider"></span>
+          </label>
+          Запомнить меня
+        </label>
+      </div>
+      <button type="submit" class="btn btn-primary btn-lg w-full" id="btn-login" style="justify-content:center">
+        Войти в систему
+      </button>
+    </form>
+
+    <p class="text-center text-sm text-muted mt-16">
+      Ученик? <a href="{{ url_for('student.index') }}">Введите PIN-код здесь →</a>
+    </p>
+  </div>
+</div>
+{% endblock %}
