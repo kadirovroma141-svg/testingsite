@@ -11,3 +11,4 @@ google-generativeai>=0.7.0
 Pillow>=10.0.0
 # PostgreSQL driver — required for Supabase
 psycopg2-binary>=2.9.9
+openpyxl
