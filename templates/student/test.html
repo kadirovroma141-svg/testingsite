@@ -1,13 +1,21 @@
 {% extends "base.html" %}
-{% block title %}{{ test.title }}{% endblock %}
+{% block title %}
+  {% if tabs|length > 1 %}Пакет тестов{% else %}{{ tabs[0].test.title }}{% endif %}
+{% endblock %}
 
 {% block content_public %}
 <div class="test-page" style="margin:-32px;min-height:100vh" id="test-app">
   <!-- Header -->
   <header class="test-header">
     <div>
-      <div style="font-weight:700;font-size:15px">{{ test.title }}</div>
-      <div class="text-muted text-sm">{{ result.student_full_name }} · {{ result.student_class }}</div>
+      <div style="font-weight:700;font-size:15px">
+        {% if tabs|length > 1 %}
+          Пакет тестов ({{ tabs|length }})
+        {% else %}
+          {{ tabs[0].test.title }}
+        {% endif %}
+      </div>
+      <div class="text-muted text-sm">{{ student.student_full_name }} · {{ student.student_class }}</div>
     </div>
     <div class="flex items-center gap-16">
       <div>
@@ -24,41 +32,77 @@
     </div>
   </header>
 
-  <!-- Questions -->
+  <!-- Tab bar (only for bundles with multiple tests) -->
+  {% if tabs|length > 1 %}
+  <div class="test-tabs" style="display:flex;gap:0;border-bottom:2px solid var(--border);background:var(--card-bg);padding:0 24px;position:sticky;top:60px;z-index:50">
+    {% for tab in tabs %}
+    <button class="test-tab-btn {% if loop.first %}active{% endif %}"
+            data-tab="{{ loop.index0 }}"
+            onclick="switchTab({{ loop.index0 }})"
+            id="tab-btn-{{ loop.index0 }}"
+            style="padding:12px 20px;border:none;background:none;font-size:14px;font-weight:600;cursor:pointer;
+                   border-bottom:3px solid transparent;transition:all .2s;color:var(--text-muted);white-space:nowrap">
+      <span style="margin-right:6px">{{ tab.test.subject or ('Тест ' ~ loop.index) }}</span>
+      <span class="tab-badge" id="tab-badge-{{ loop.index0 }}"
+            style="background:var(--bg);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500">
+        0/{{ tab.questions_data|length }}
+      </span>
+    </button>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Questions (grouped by tab/test) -->
   <div class="test-body">
-    {% for item in questions_data %}
-    {% set q = item.question %}
-    {% set opts = item.options %}
-    <div class="question-card" id="qcard-{{ q.id }}">
-      <div class="question-num">Вопрос {{ loop.index }} из {{ questions_data|length }}
-        {% if q.question_type == 'multiple' %} · <span style="color:var(--warning)">Несколько ответов</span>{% endif %}
-        <span style="float:right;color:var(--primary-h)">{{ q.points }} б.</span>
+    {% for tab in tabs %}
+    <div class="test-tab-content {% if loop.first %}active{% endif %}" data-tab="{{ loop.index0 }}" id="tab-content-{{ loop.index0 }}"
+         {% if not loop.first %}style="display:none"{% endif %}>
+
+      {% if tabs|length > 1 %}
+      <div style="padding:16px 0 8px;margin-bottom:8px;border-bottom:1px solid var(--border)">
+        <div style="font-weight:700;font-size:17px;color:var(--primary-h)">{{ tab.test.title }}</div>
+        {% if tab.test.subject %}
+          <div class="text-muted text-sm">{{ tab.test.subject }} · {{ tab.questions_data|length }} вопросов</div>
+        {% endif %}
       </div>
-      <p class="question-text" style="white-space:pre-wrap">{{ q.text }}</p>
-      {% if q.image_url %}
-        <div style="margin-bottom: 16px;">
-          <img src="{{ q.image_url }}" style="max-height: 250px; border-radius: 6px; border: 1px solid var(--border); max-width: 100%;">
-        </div>
-      {% endif %}      {% if q.question_type != 'text' %}
-      <div class="options-list" data-qid="{{ q.id }}" data-type="{{ q.question_type }}">
-        {% for opt in opts %}
-        <div class="option-item" id="opt-{{ opt.id }}" onclick="selectOption(this, {{ q.id }}, {{ opt.id }}, '{{ q.question_type }}')">
-          <div class="option-marker">{{ loop.index }}</div>
-          <div class="option-text" style="flex:1; white-space:pre-wrap">
-            {{ opt.text }}
-            {% if opt.image_url %}
-              <div style="margin-top: 8px;">
-                <img src="{{ opt.image_url }}" style="max-height: 150px; border-radius: 4px; border: 1px solid var(--border); max-width: 100%;">
-              </div>
-            {% endif %}
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-      {% else %}
-      <textarea class="form-control" rows="4" placeholder="Введите ваш ответ..."
-                id="text-{{ q.id }}" style="margin-top:8px"></textarea>
       {% endif %}
+
+      {% for item in tab.questions_data %}
+      {% set q = item.question %}
+      {% set opts = item.options %}
+      <div class="question-card" id="qcard-{{ q.id }}">
+        <div class="question-num">Вопрос {{ loop.index }} из {{ tab.questions_data|length }}
+          {% if q.question_type == 'multiple' %} · <span style="color:var(--warning)">Несколько ответов</span>{% endif %}
+          <span style="float:right;color:var(--primary-h)">{{ q.points }} б.</span>
+        </div>
+        <p class="question-text" style="white-space:pre-wrap">{{ q.text }}</p>
+        {% if q.image_url %}
+          <div style="margin-bottom: 16px;">
+            <img src="{{ q.image_url }}" style="max-height: 250px; border-radius: 6px; border: 1px solid var(--border); max-width: 100%;">
+          </div>
+        {% endif %}
+        {% if q.question_type != 'text' %}
+        <div class="options-list" data-qid="{{ q.id }}" data-type="{{ q.question_type }}">
+          {% for opt in opts %}
+          <div class="option-item" id="opt-{{ opt.id }}" onclick="selectOption(this, {{ q.id }}, {{ opt.id }}, '{{ q.question_type }}')">
+            <div class="option-marker">{{ loop.index }}</div>
+            <div class="option-text" style="flex:1; white-space:pre-wrap">
+              {{ opt.text }}
+              {% if opt.image_url %}
+                <div style="margin-top: 8px;">
+                  <img src="{{ opt.image_url }}" style="max-height: 150px; border-radius: 4px; border: 1px solid var(--border); max-width: 100%;">
+                </div>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <textarea class="form-control" rows="4" placeholder="Введите ваш ответ..."
+                  id="text-{{ q.id }}" style="margin-top:8px"></textarea>
+        {% endif %}
+      </div>
+      {% endfor %}
     </div>
     {% endfor %}
 
@@ -71,7 +115,7 @@
 <div class="modal-backdrop" id="confirm-modal">
   <div class="modal">
     <div class="modal-title">⚠️ Завершить тест?</div>
-    <p class="text-muted" style="margin-bottom:20px">Вы ответили на <strong id="answered-count">0</strong> из <strong>{{ questions_data|length }}</strong> вопросов. После отправки изменить ответы нельзя.</p>
+    <p class="text-muted" style="margin-bottom:20px">Вы ответили на <strong id="answered-count">0</strong> из <strong id="total-count">0</strong> вопросов. После отправки изменить ответы нельзя.</p>
     <div class="flex gap-12">
       <button id="btn-confirm-submit" class="btn btn-success" onclick="confirmSubmit()">Отправить</button>
       <button class="btn btn-ghost" onclick="document.getElementById('confirm-modal').classList.remove('open')">Вернуться</button>
@@ -83,9 +127,22 @@
 {% block extra_js %}
 <script>
 const ANSWERS    = {};   // { qid: [optId, ...] or "text string" }
-const TOTAL_Q    = {{ questions_data|length }};
 const TIME_LIMIT = {{ time_limit_minutes or 0 }};
 let timerInterval = null;
+
+// Build total question count from tabs
+const TAB_Q_COUNTS = [
+  {% for tab in tabs %}{{ tab.questions_data|length }}{% if not loop.last %},{% endif %}{% endfor %}
+];
+const TOTAL_Q = TAB_Q_COUNTS.reduce((a, b) => a + b, 0);
+document.getElementById('total-count').textContent = TOTAL_Q;
+
+// Tab question IDs (for progress tracking per tab)
+const TAB_QIDS = [
+  {% for tab in tabs %}
+  [{% for item in tab.questions_data %}{{ item.question.id }}{% if not loop.last %},{% endif %}{% endfor %}]{% if not loop.last %},{% endif %}
+  {% endfor %}
+];
 
 // ===== Timer =====
 if (TIME_LIMIT > 0) {
@@ -99,6 +156,30 @@ if (TIME_LIMIT > 0) {
     timerEl.className = 'test-timer' + (remaining < 60 ? ' danger' : remaining < 180 ? ' warning' : '');
     if (remaining <= 0) { clearInterval(timerInterval); confirmSubmit(); }
   }, 1000);
+}
+
+// ===== Tab switching =====
+function switchTab(idx) {
+  document.querySelectorAll('.test-tab-btn').forEach(btn => {
+    btn.classList.remove('active');
+    btn.style.borderBottomColor = 'transparent';
+    btn.style.color = 'var(--text-muted)';
+  });
+  document.querySelectorAll('.test-tab-content').forEach(c => {
+    c.style.display = 'none';
+    c.classList.remove('active');
+  });
+  const btn = document.getElementById('tab-btn-' + idx);
+  const content = document.getElementById('tab-content-' + idx);
+  if (btn) {
+    btn.classList.add('active');
+    btn.style.borderBottomColor = 'var(--primary-h)';
+    btn.style.color = 'var(--text)';
+  }
+  if (content) {
+    content.style.display = 'block';
+    content.classList.add('active');
+  }
 }
 
 // ===== Option selection =====
@@ -132,6 +213,21 @@ function updateProgress() {
     return Array.isArray(v) ? v.length > 0 : v.trim() !== '';
   }).length;
   document.getElementById('progress-fill').style.width = (answered / TOTAL_Q * 100) + '%';
+
+  // Update per-tab badges
+  TAB_QIDS.forEach((qids, idx) => {
+    const tabAnswered = qids.filter(qid => {
+      const v = ANSWERS[qid];
+      if (!v) return false;
+      return Array.isArray(v) ? v.length > 0 : v.trim() !== '';
+    }).length;
+    const badge = document.getElementById('tab-badge-' + idx);
+    if (badge) {
+      badge.textContent = tabAnswered + '/' + qids.length;
+      badge.style.background = tabAnswered === qids.length ? 'var(--success)' : 'var(--bg)';
+      badge.style.color = tabAnswered === qids.length ? '#fff' : 'var(--text-muted)';
+    }
+  });
 }
 
 // ===== Submit =====
@@ -168,6 +264,13 @@ async function confirmSubmit() {
   } catch(e) {
     alert('Ошибка соединения: ' + e.message);
   }
+}
+
+// Init first tab style
+if (document.querySelector('.test-tab-btn.active')) {
+  const btn = document.querySelector('.test-tab-btn.active');
+  btn.style.borderBottomColor = 'var(--primary-h)';
+  btn.style.color = 'var(--text)';
 }
 </script>
 {% endblock %}

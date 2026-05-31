@@ -6,19 +6,26 @@ Entity relationships:
   User (Teacher/Admin)
     └── creates many Tests
     └── creates many AssignedTests (PIN codes)
+    └── creates many TestBundles (admin only)
 
   Test
     └── has many Questions
          └── has many AnswerOptions
     └── can be assigned many times via AssignedTest
+    └── can be included in many TestBundles via BundleItem
 
-  AssignedTest (PIN code)
+  TestBundle (multi-test PIN code, created by admin)
+    └── has many BundleItems (each pointing to a Test)
+    └── has many TestResults (student attempts)
+
+  AssignedTest (single-test PIN code)
     └── belongs to one Test
     └── created by one Teacher (User)
     └── has many TestResults (student attempts)
 
   TestResult
-    └── belongs to one AssignedTest (PIN)
+    └── belongs to one AssignedTest OR one TestBundle
+    └── always linked to one Test
     └── has many ResultAnswers (per-question answers)
 """
 
@@ -309,29 +316,134 @@ class AssignedTest(db.Model):
 
 
 # ---------------------------------------------------------------------------
-# TestResult  (one student's attempt at an AssignedTest)
+# TestBundle  (multi-test PIN code — groups several tests under one PIN)
+# ---------------------------------------------------------------------------
+
+class TestBundle(db.Model):
+    """
+    A bundle of tests assigned under a single PIN code.
+    Created by an admin, can contain tests from different teachers.
+    Students see all tests in the bundle when they enter the PIN.
+    Teachers see results only for their own tests within the bundle.
+    """
+    __tablename__ = "test_bundles"
+
+    id              = db.Column(db.Integer, primary_key=True)
+    pin_code        = db.Column(db.String(16),  unique=True, nullable=False, default=_generate_pin, index=True)
+    label           = db.Column(db.String(256), nullable=True)
+    created_by_id   = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    is_active       = db.Column(db.Boolean,     nullable=False, default=True)
+
+    # Scheduling
+    available_from     = db.Column(db.DateTime(timezone=True), nullable=True)
+    available_until    = db.Column(db.DateTime(timezone=True), nullable=True)
+    time_limit_minutes = db.Column(db.Integer, nullable=True)
+    max_attempts       = db.Column(db.Integer, nullable=True, default=1)
+
+    # Randomization & results
+    shuffle_questions       = db.Column(db.Boolean, nullable=False, default=False)
+    shuffle_options         = db.Column(db.Boolean, nullable=False, default=False)
+    show_results_to_student = db.Column(db.Boolean, nullable=False, default=True)
+
+    created_at = db.Column(db.DateTime(timezone=True), default=_utcnow, nullable=False)
+
+    # Relationships
+    created_by = db.relationship("User", foreign_keys=[created_by_id])
+    items      = db.relationship("BundleItem",  back_populates="bundle",
+                                 lazy="select", cascade="all, delete-orphan",
+                                 order_by="BundleItem.order_index")
+    results    = db.relationship("TestResult",  back_populates="bundle",
+                                 lazy="dynamic", cascade="all, delete-orphan",
+                                 foreign_keys="TestResult.bundle_id")
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    @property
+    def tests(self):
+        """Return list of Test objects in this bundle."""
+        return [item.test for item in self.items]
+
+    @property
+    def test_count(self) -> int:
+        return len(self.items)
+
+    def is_accessible(self) -> bool:
+        """Return True if the bundle is currently open for students."""
+        if not self.is_active:
+            return False
+        now = datetime.now(timezone.utc)
+        if self.available_from  and now < self.available_from:
+            return False
+        if self.available_until and now > self.available_until:
+            return False
+        return True
+
+    def regenerate_pin(self) -> str:
+        """Generate and save a brand-new PIN code."""
+        self.pin_code = _generate_pin()
+        return self.pin_code
+
+    def __repr__(self) -> str:
+        return f"<TestBundle id={self.id} pin={self.pin_code!r} tests={self.test_count}>"
+
+
+# ---------------------------------------------------------------------------
+# BundleItem  (one test inside a TestBundle)
+# ---------------------------------------------------------------------------
+
+class BundleItem(db.Model):
+    """
+    Links a Test to a TestBundle. Each item represents one test
+    within the bundle. The order_index determines display order.
+    """
+    __tablename__ = "bundle_items"
+
+    id          = db.Column(db.Integer, primary_key=True)
+    bundle_id   = db.Column(db.Integer, db.ForeignKey("test_bundles.id"), nullable=False, index=True)
+    test_id     = db.Column(db.Integer, db.ForeignKey("tests.id"),        nullable=False, index=True)
+    order_index = db.Column(db.Integer, nullable=False, default=0)
+
+    # Relationships
+    bundle = db.relationship("TestBundle", back_populates="items")
+    test   = db.relationship("Test")
+
+    def __repr__(self) -> str:
+        return f"<BundleItem id={self.id} bundle_id={self.bundle_id} test_id={self.test_id}>"
+
+
+# ---------------------------------------------------------------------------
+# TestResult  (one student's attempt at an AssignedTest or one test in a Bundle)
 # ---------------------------------------------------------------------------
 
 class TestResult(db.Model):
     """
-    A single student's attempt at a test session (AssignedTest).
+    A single student's attempt at a test.
 
     Students are anonymous — no user account.  Identity is stored as plain
     text fields supplied by the student before starting the test.
-    Results are always linked to the PIN code (assigned_test_id), NOT to the
-    Test template directly, so the teacher sees results per assignment.
+
+    Results can be linked to:
+    - An AssignedTest (single-test PIN) via assigned_test_id
+    - A TestBundle (multi-test PIN) via bundle_id
+
+    The test_id always points to the specific Test being answered.
     """
     __tablename__ = "test_results"
 
     id               = db.Column(db.Integer, primary_key=True)
-    assigned_test_id = db.Column(db.Integer, db.ForeignKey("assigned_tests.id"), nullable=False, index=True)
+    assigned_test_id = db.Column(db.Integer, db.ForeignKey("assigned_tests.id"), nullable=True, index=True)
+    bundle_id        = db.Column(db.Integer, db.ForeignKey("test_bundles.id"),   nullable=True, index=True)
+    test_id          = db.Column(db.Integer, db.ForeignKey("tests.id"),          nullable=False, index=True)
 
     # ------------------------------------------------------------------
     # Student identity (free text — no account required)
     # ------------------------------------------------------------------
     student_last_name  = db.Column(db.String(128), nullable=False)   # Фамилия
     student_first_name = db.Column(db.String(128), nullable=False)   # Имя
-    student_class      = db.Column(db.String(16),  nullable=False)   # Класс, e.g. "10-А"
+    student_grade      = db.Column(db.String(8),   nullable=False)   # Класс (число), e.g. "10"
+    student_letter     = db.Column(db.String(8),   nullable=False)   # Литер, e.g. "А"
 
     # ------------------------------------------------------------------
     # Attempt metadata
@@ -351,6 +463,9 @@ class TestResult(db.Model):
     # Relationships
     # ------------------------------------------------------------------
     assigned_test   = db.relationship("AssignedTest", back_populates="results")
+    bundle          = db.relationship("TestBundle",   back_populates="results",
+                                      foreign_keys=[bundle_id])
+    test            = db.relationship("Test")
     answer_details  = db.relationship("ResultAnswer",  back_populates="result",
                                       lazy="dynamic",   cascade="all, delete-orphan")
 
@@ -363,11 +478,25 @@ class TestResult(db.Model):
         return f"{self.student_last_name} {self.student_first_name}"
 
     @property
+    def student_class(self) -> str:
+        """Formatted class string, e.g. '10-А'."""
+        return f"{self.student_grade}-{self.student_letter}"
+
+    @property
     def duration_seconds(self) -> Optional[int]:
         """Wall-clock duration of the attempt in seconds."""
         if self.submitted_at and self.started_at:
             return int((self.submitted_at - self.started_at).total_seconds())
         return None
+
+    @property
+    def pin_code(self) -> str:
+        """Return the PIN code this result belongs to."""
+        if self.assigned_test:
+            return self.assigned_test.pin_code
+        if self.bundle:
+            return self.bundle.pin_code
+        return "—"
 
     def calculate_score(self) -> None:
         """

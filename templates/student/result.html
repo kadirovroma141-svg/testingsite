@@ -3,18 +3,18 @@
 
 {% block content_public %}
 <div class="pin-page">
-  <div class="pin-card" style="max-width:520px">
+  <div class="pin-card" style="max-width:560px">
     <div style="text-align:center;margin-bottom:28px">
-      <div style="font-size:72px;font-weight:900;color:{% if result.percentage>=70 %}var(--success){% elif result.percentage>=40 %}var(--warning){% else %}var(--danger){% endif %}">
-        {{ result.percentage }}%
+      <div style="font-size:72px;font-weight:900;color:{% if total_pct>=70 %}var(--success){% elif total_pct>=40 %}var(--warning){% else %}var(--danger){% endif %}">
+        {{ total_pct }}%
       </div>
       <div style="font-size:20px;font-weight:700;margin-bottom:4px">
-        {% if result.percentage >= 70 %}🎉 Отличный результат!
-        {% elif result.percentage >= 40 %}👍 Неплохо!
+        {% if total_pct >= 70 %}🎉 Отличный результат!
+        {% elif total_pct >= 40 %}👍 Неплохо!
         {% else %}📚 Нужно поработать{% endif %}
       </div>
       <div class="text-muted text-sm">
-        {{ result.score }} из {{ result.max_score }} баллов
+        {{ total_score }} из {{ total_max }} баллов
       </div>
     </div>
 
@@ -28,10 +28,6 @@
           <div class="text-muted text-sm">Класс</div>
           <div style="font-weight:600;margin-top:2px">{{ result.student_class }}</div>
         </div>
-        <div>
-          <div class="text-muted text-sm">Тест</div>
-          <div style="font-weight:600;margin-top:2px;font-size:13px">{{ result.assigned_test.test.title }}</div>
-        </div>
         {% if result.duration_seconds %}
         <div>
           <div class="text-muted text-sm">Время</div>
@@ -41,22 +37,19 @@
       </div>
     </div>
 
-    <!-- Per-question summary -->
-    {% if answers %}
-    <div style="max-height:320px;overflow-y:auto;margin-bottom:20px">
-      {% for ra in answers %}
-      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
-        <span class="badge {% if ra.is_correct %}badge-success{% elif ra.is_correct == false %}badge-danger{% else %}badge-warning{% endif %}" style="flex-shrink:0">
-          {{ loop.index }}
-        </span>
-        <span style="font-size:13px;flex:1">{{ ra.question.text[:80] }}{% if ra.question.text|length > 80 %}…{% endif %}</span>
-        <span class="text-sm {% if ra.is_correct %}text-success{% elif ra.is_correct == false %}text-danger{% else %}text-warning{% endif %}">
-          {{ ra.points_earned }}/{{ ra.points_possible }}
+    <!-- Per-test results (only show test names and their scores if multi-test bundle, no question breakdown) -->
+    {% for rd in results_data %}
+    <div style="margin-bottom:20px">
+      {% if results_data|length > 1 %}
+      <div style="padding:12px 16px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
+        <div style="font-weight:700;font-size:15px;color:var(--primary-h)">{{ rd.result.test.title }}</div>
+        <span class="badge {% if rd.result.percentage >= 70 %}badge-success{% elif rd.result.percentage >= 40 %}badge-warning{% else %}badge-danger{% endif %}">
+          {{ rd.result.percentage }}% · {{ rd.result.score }}/{{ rd.result.max_score }}
         </span>
       </div>
-      {% endfor %}
+      {% endif %}
     </div>
-    {% endif %}
+    {% endfor %}
 
     <a href="{{ url_for('student.index') }}" class="btn btn-outline w-full" style="justify-content:center">
       ← На главную

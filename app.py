@@ -53,4 +53,4 @@ def create_app(config=None) -> Flask:
 
 if __name__ == "__main__":
     application = create_app()
-    application.run(debug=True, port=5001)
+    application.run(debug=True, port=5002)

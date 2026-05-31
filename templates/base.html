@@ -33,6 +33,12 @@
         <a href="{{ url_for('admin.teachers') }}" class="nav-item {% if request.endpoint == 'admin.teachers' %}active{% endif %}">
           <span class="icon">👨‍🏫</span> Учителя
         </a>
+        <a href="{{ url_for('admin.assign_bundle') }}" class="nav-item {% if request.endpoint == 'admin.assign_bundle' %}active{% endif %}">
+          <span class="icon">📦</span> Назначить тест
+        </a>
+        <a href="{{ url_for('admin.bundles') }}" class="nav-item {% if request.endpoint == 'admin.bundles' %}active{% endif %}">
+          <span class="icon">🔑</span> Пакеты тестов
+        </a>
         <a href="{{ url_for('admin.results') }}" class="nav-item {% if request.endpoint == 'admin.results' %}active{% endif %}">
           <span class="icon">📋</span> Все результаты
         </a>

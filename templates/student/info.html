@@ -5,11 +5,24 @@
 <div class="pin-page">
   <div class="pin-card" style="max-width:480px">
     <div class="pin-logo">
-      <div style="font-size:13px;font-weight:600;color:var(--text-muted);text-align:center;margin-bottom:4px">Тест</div>
-      <div class="pin-title" style="font-size:20px">{{ assigned.test.title }}</div>
+      <div style="font-size:13px;font-weight:600;color:var(--text-muted);text-align:center;margin-bottom:4px">
+        {% if source_type == 'bundle' %}Пакет тестов{% else %}Тест{% endif %}
+      </div>
+      {% if source_type == 'bundle' %}
+        <div class="pin-title" style="font-size:18px">
+          {% for t in tests_list %}
+            <span style="display:inline-block;background:var(--bg);padding:4px 10px;border-radius:6px;margin:2px;font-size:14px">
+              {{ t.subject or t.title }}
+            </span>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="pin-title" style="font-size:20px">{{ tests_list[0].title }}</div>
+      {% endif %}
       <div class="pin-subtitle">
-        {% if assigned.time_limit_minutes %}⏱ {{ assigned.time_limit_minutes }} минут{% else %}Без ограничения времени{% endif %}
-        · {{ assigned.test.question_count }} вопросов
+        {% if time_limit %}⏱ {{ time_limit }} минут{% else %}Без ограничения времени{% endif %}
+        · {{ total_questions }} вопросов
+        {% if tests_list|length > 1 %} · {{ tests_list|length }} тестов{% endif %}
       </div>
     </div>
 
@@ -24,10 +37,25 @@
         <input class="form-control" type="text" id="first-name" name="first_name"
                placeholder="Иван" required>
       </div>
-      <div class="form-group">
-        <label class="form-label" for="student-class">Класс</label>
-        <input class="form-control" type="text" id="student-class" name="student_class"
-               placeholder="10-А" required>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group">
+          <label class="form-label" for="student-grade">Класс</label>
+          <select class="form-control" id="student-grade" name="student_grade" required>
+            <option value="" disabled selected>Выберите</option>
+            {% for g in range(1, 12) %}
+              <option value="{{ g }}">{{ g }} класс</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="student-letter">Литер</label>
+          <select class="form-control" id="student-letter" name="student_letter" required>
+            <option value="" disabled selected>Выберите</option>
+            {% for l in ['А','Б','В','Г','Д','Е','Ж','З','И','К'] %}
+              <option value="{{ l }}">{{ l }}</option>
+            {% endfor %}
+          </select>
+        </div>
       </div>
       <button type="submit" id="btn-start-test" class="btn btn-primary btn-lg w-full mt-8" style="justify-content:center">
         Начать тест →

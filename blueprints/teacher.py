@@ -25,9 +25,10 @@ def _allowed_file(filename: str) -> bool:
 def dashboard():
     my_tests    = Test.query.filter_by(author_id=current_user.id).order_by(Test.updated_at.desc()).limit(5).all()
     my_assigned = AssignedTest.query.filter_by(teacher_id=current_user.id).order_by(AssignedTest.created_at.desc()).limit(5).all()
+    # Count results for teacher's tests (including bundle results)
     total_results = (TestResult.query
-                     .join(AssignedTest)
-                     .filter(AssignedTest.teacher_id == current_user.id)
+                     .join(Test, TestResult.test_id == Test.id)
+                     .filter(Test.author_id == current_user.id)
                      .count())
     return render_template("teacher/dashboard.html",
                            my_tests=my_tests,
@@ -204,25 +205,45 @@ def delete_assigned(aid: int):
 @teacher_bp.route("/results")
 @login_required
 def results():
-    page = request.args.get("page", 1, type=int)
-    pin  = request.args.get("pin", "").strip()
+    page   = request.args.get("page", 1, type=int)
+    pin    = request.args.get("pin", "").strip()
+    grade  = request.args.get("grade", "").strip()
+    letter = request.args.get("letter", "").strip()
 
+    # Teacher sees results ONLY for their own tests (including bundles)
     query = (TestResult.query
-             .join(AssignedTest)
-             .filter(AssignedTest.teacher_id == current_user.id))
+             .join(Test, TestResult.test_id == Test.id)
+             .filter(Test.author_id == current_user.id))
+
     if pin:
-        query = query.filter(AssignedTest.pin_code == pin)
+        # Filter by PIN — check both AssignedTest and TestBundle PINs
+        from sqlalchemy import or_
+        from models import TestBundle
+        query = query.outerjoin(AssignedTest, TestResult.assigned_test_id == AssignedTest.id)
+        query = query.outerjoin(TestBundle, TestResult.bundle_id == TestBundle.id)
+        query = query.filter(
+            or_(AssignedTest.pin_code == pin, TestBundle.pin_code == pin)
+        )
+    if grade:
+        query = query.filter(TestResult.student_grade == grade)
+    if letter:
+        query = query.filter(TestResult.student_letter == letter)
 
     pagination = query.order_by(TestResult.started_at.desc()).paginate(page=page, per_page=20)
-    return render_template("teacher/results.html", pagination=pagination, pin_filter=pin)
+    return render_template("teacher/results.html",
+                           pagination=pagination,
+                           pin_filter=pin,
+                           grade_filter=grade,
+                           letter_filter=letter)
 
 
 @teacher_bp.route("/results/<int:rid>")
 @login_required
 def result_detail(rid: int):
+    # Teacher can see result only if the test belongs to them
     result = (TestResult.query
-              .join(AssignedTest)
-              .filter(AssignedTest.teacher_id == current_user.id,
+              .join(Test, TestResult.test_id == Test.id)
+              .filter(Test.author_id == current_user.id,
                       TestResult.id == rid)
               .first_or_404())
     answers = result.answer_details.all()

@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Назначить тест{% endblock %}
+
+{% block content %}
+<div class="topbar">
+  <div>
+    <div class="page-title">Назначить <span>тест</span></div>
+    <div class="page-subtitle">Выберите тесты и создайте общий PIN-код</div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 380px;gap:24px;align-items:start">
+  <form method="POST" id="bundle-form">
+
+    <!-- Test selection -->
+    <div class="card mb-24">
+      <div class="card-title">📝 Выберите тесты</div>
+      <p class="text-muted text-sm" style="margin-bottom:16px">
+        Вы можете выбрать один или несколько тестов от разных учителей.
+        Все они будут доступны ученику по одному PIN-коду.
+      </p>
+
+      {% if all_tests %}
+        <!-- Search -->
+        <div class="form-group" style="margin-bottom:16px">
+          <input class="form-control" type="text" id="test-search" placeholder="🔍 Поиск по названию или предмету..."
+                 oninput="filterTests(this.value)">
+        </div>
+
+        <div id="tests-list" style="max-height:400px;overflow-y:auto">
+          {% set ns = namespace(current_teacher='') %}
+          {% for test in all_tests %}
+            {% if test.author.full_name != ns.current_teacher %}
+              {% set ns.current_teacher = test.author.full_name %}
+              <div class="teacher-group-header" style="padding:10px 0 6px;margin-top:{% if not loop.first %}12px{% else %}0{% endif %};border-bottom:1px solid var(--border)">
+                <span style="font-weight:700;font-size:13px;color:var(--primary-h)">👨‍🏫 {{ test.author.full_name }}</span>
+              </div>
+            {% endif %}
+            <label class="test-select-item" data-search="{{ test.title|lower }} {{ (test.subject or '')|lower }} {{ test.author.full_name|lower }}"
+                   style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:var(--radius);cursor:pointer;transition:background .15s;border:1px solid transparent;margin:4px 0"
+                   onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='transparent'">
+              <input type="checkbox" name="test_ids" value="{{ test.id }}" id="test-cb-{{ test.id }}"
+                     onchange="updateSelectedCount()"
+                     style="width:18px;height:18px;accent-color:var(--primary-h);flex-shrink:0">
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:600;font-size:14px">{{ test.title }}</div>
+                <div class="text-muted text-sm">
+                  {% if test.subject %}{{ test.subject }} · {% endif %}{{ test.question_count }} вопросов
+                </div>
+              </div>
+            </label>
+          {% endfor %}
+        </div>
+
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+          <span class="text-muted text-sm">Выбрано: <strong id="selected-count">0</strong> тестов</span>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="toggleAll()">Выбрать / Снять всё</button>
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <div class="icon">📭</div>
+          <h3>Нет опубликованных тестов</h3>
+          <p>Учителя должны создать и опубликовать тесты, прежде чем вы сможете их назначить.</p>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Settings (right column on desktop via grid) -->
+    <div class="card" style="position:sticky;top:24px">
+      <div class="card-title">⚙️ Параметры</div>
+
+      <div class="form-group">
+        <label class="form-label">Метка (напр. "10-А, май 2026")</label>
+        <input class="form-control" name="label" id="bundle-label" placeholder="Необязательно">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group">
+          <label class="form-label">Ограничение времени (мин.)</label>
+          <input class="form-control" type="number" name="time_limit_minutes" id="bundle-time"
+                 placeholder="Без ограничений" min="1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Макс. попыток</label>
+          <input class="form-control" type="number" name="max_attempts" id="bundle-attempts" value="1" min="1">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group">
+          <label class="form-label">Доступен с</label>
+          <input class="form-control" type="datetime-local" name="available_from" id="bundle-from">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Доступен до</label>
+          <input class="form-control" type="datetime-local" name="available_until" id="bundle-until">
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px">
+        <label class="toggle-wrap">
+          <label class="toggle"><input type="checkbox" name="shuffle_questions" id="bundle-shuffleq"><span class="toggle-slider"></span></label>
+          Перемешивать вопросы
+        </label>
+        <label class="toggle-wrap">
+          <label class="toggle"><input type="checkbox" name="shuffle_options" id="bundle-shuffleo"><span class="toggle-slider"></span></label>
+          Перемешивать варианты ответов
+        </label>
+        <label class="toggle-wrap">
+          <label class="toggle"><input type="checkbox" name="show_results_to_student" id="bundle-showres" checked><span class="toggle-slider"></span></label>
+          Показывать результаты ученику сразу
+        </label>
+      </div>
+      <button type="submit" id="btn-create-bundle" class="btn btn-success btn-lg w-full" style="justify-content:center">
+        🔑 Создать пакет и PIN-код
+      </button>
+    </div>
+  </form>
+</div>
+
+<style>
+  @media (max-width: 800px) {
+    div[style*="grid-template-columns:1fr 380px"] {
+      grid-template-columns: 1fr !important;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function filterTests(query) {
+  const q = query.toLowerCase();
+  document.querySelectorAll('.test-select-item').forEach(el => {
+    const match = el.dataset.search.includes(q);
+    el.style.display = match ? 'flex' : 'none';
+  });
+  // Also show/hide teacher headers
+  document.querySelectorAll('.teacher-group-header').forEach(h => {
+    let next = h.nextElementSibling;
+    let visible = false;
+    while (next && !next.classList.contains('teacher-group-header')) {
+      if (next.style.display !== 'none') visible = true;
+      next = next.nextElementSibling;
+    }
+    h.style.display = visible ? 'block' : 'none';
+  });
+}
+
+function updateSelectedCount() {
+  const count = document.querySelectorAll('input[name="test_ids"]:checked').length;
+  document.getElementById('selected-count').textContent = count;
+}
+
+function toggleAll() {
+  const boxes = document.querySelectorAll('input[name="test_ids"]');
+  const allChecked = [...boxes].every(b => b.checked);
+  boxes.forEach(b => b.checked = !allChecked);
+  updateSelectedCount();
+}
+</script>
+{% endblock %}

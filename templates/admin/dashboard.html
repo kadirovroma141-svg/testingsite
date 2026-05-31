@@ -26,10 +26,10 @@
     </div>
   </div>
   <div class="stat-card">
-    <div class="stat-icon orange">🔑</div>
+    <div class="stat-icon orange">📦</div>
     <div>
-      <div class="stat-value">{{ stats.assigned }}</div>
-      <div class="stat-label">PIN-кодов выдано</div>
+      <div class="stat-value">{{ stats.bundles }}</div>
+      <div class="stat-label">Пакетов тестов</div>
     </div>
   </div>
   <div class="stat-card">
@@ -38,6 +38,15 @@
       <div class="stat-value">{{ stats.results }}</div>
       <div class="stat-label">Тестов пройдено</div>
     </div>
+  </div>
+</div>
+
+<!-- Quick actions -->
+<div class="card mb-24">
+  <div class="flex items-center gap-12">
+    <a href="{{ url_for('admin.assign_bundle') }}" class="btn btn-primary">📦 Назначить тест</a>
+    <a href="{{ url_for('admin.bundles') }}" class="btn btn-outline">🔑 Пакеты тестов</a>
+    <a href="{{ url_for('admin.results') }}" class="btn btn-outline">📋 Все результаты</a>
   </div>
 </div>
 
@@ -60,8 +69,8 @@
         <tr>
           <td><strong>{{ r.student_full_name }}</strong></td>
           <td>{{ r.student_class }}</td>
-          <td>{{ r.assigned_test.test.title }}</td>
-          <td><span class="badge badge-purple">{{ r.assigned_test.pin_code }}</span></td>
+          <td>{{ r.test.title }}</td>
+          <td><span class="badge badge-purple">{{ r.pin_code }}</span></td>
           <td>
             {% if r.is_completed %}
               <span class="badge {% if r.percentage >= 70 %}badge-success{% elif r.percentage >= 40 %}badge-warning{% else %}badge-danger{% endif %}">

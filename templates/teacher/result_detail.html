@@ -5,7 +5,7 @@
 <div class="topbar">
   <div>
     <div class="page-title"><span>{{ result.student_full_name }}</span></div>
-    <div class="page-subtitle">{{ result.student_class }} · PIN {{ result.assigned_test.pin_code }}</div>
+    <div class="page-subtitle">{{ result.student_class }} · PIN {{ result.pin_code }}</div>
   </div>
   <a href="{{ url_for('teacher.results') }}" class="btn btn-outline">← Назад</a>
 </div>
@@ -15,7 +15,7 @@
   <div style="font-size:64px;font-weight:800;color:var(--primary-h)">{{ result.percentage }}%</div>
   <div style="font-size:18px;font-weight:600;margin-bottom:4px">{{ result.score }} / {{ result.max_score }} баллов</div>
   <div class="text-muted text-sm">
-    {{ result.assigned_test.test.title }} ·
+    {{ result.test.title }} ·
     {{ result.started_at.strftime('%d.%m.%Y %H:%M') }}
     {% if result.duration_seconds %}· {{ (result.duration_seconds // 60)|int }} мин. {{ result.duration_seconds % 60 }} сек.{% endif %}
   </div>
