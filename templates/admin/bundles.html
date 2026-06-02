@@ -62,7 +62,7 @@
               <form method="POST" action="{{ url_for('admin.regenerate_bundle_pin', bid=b.id) }}">
                 <button class="btn btn-outline btn-sm" id="btn-regen-bundle-{{ b.id }}" title="Новый PIN">🔄</button>
               </form>
-              <a href="{{ url_for('admin.results') }}?pin={{ b.pin_code }}" class="btn btn-outline btn-sm">📊</a>
+              <a href="{{ url_for('admin.results', bundle_id=b.id) }}" class="btn btn-outline btn-sm" title="Результаты этого пакета">📊 Результаты</a>
               <form method="POST" action="{{ url_for('admin.delete_bundle', bid=b.id) }}"
                     onsubmit="return confirm('Удалить пакет и все результаты?')">
                 <button class="btn btn-danger btn-sm" id="btn-del-bundle-{{ b.id }}">🗑</button>

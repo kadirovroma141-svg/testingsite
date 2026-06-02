@@ -17,7 +17,7 @@
     <div>
       <div class="flex items-center justify-between mb-8">
         <span class="badge {% if t.is_draft %}badge-warning{% else %}badge-success{% endif %}">
-          {{ 'Черновик' if t.is_draft else '✓ Готов' }}
+          {{ '📝 Черновик' if t.is_draft else '✅ Опубликован' }}
         </span>
         <span class="badge badge-muted">{{ t.creation_method|upper }}</span>
       </div>
@@ -30,6 +30,16 @@
     <div class="flex gap-8 mt-8" style="flex-wrap:wrap">
       <a href="{{ url_for('teacher.edit_test', test_id=t.id) }}" class="btn btn-outline btn-sm" id="btn-edit-{{ t.id }}">✏️ Редактировать</a>
       <a href="{{ url_for('teacher.assign_test', test_id=t.id) }}" class="btn btn-primary btn-sm" id="btn-assign-{{ t.id }}">🔑 Назначить</a>
+      {% if t.is_draft %}
+      <form method="POST" action="{{ url_for('teacher.publish_test', test_id=t.id) }}" style="margin:0">
+        <button type="submit" class="btn btn-success btn-sm" id="btn-publish-{{ t.id }}">🌐 Опубликовать</button>
+      </form>
+      {% else %}
+      <form method="POST" action="{{ url_for('teacher.unpublish_test', test_id=t.id) }}" style="margin:0">
+        <button type="submit" class="btn btn-outline btn-sm" id="btn-unpublish-{{ t.id }}"
+                onclick="return confirm('Снять тест «{{ t.title }}» с публикации?')">↩ В черновик</button>
+      </form>
+      {% endif %}
       <form method="POST" action="{{ url_for('teacher.delete_test', test_id=t.id) }}"
             onsubmit="return confirm('Удалить тест «{{ t.title }}»?')" style="margin:0">
         <button type="submit" class="btn btn-ghost btn-sm" id="btn-del-test-{{ t.id }}">🗑</button>

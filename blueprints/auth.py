@@ -8,6 +8,8 @@ auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:
+        if current_user.must_change_password:
+            return redirect(url_for("teacher.change_password"))
         return _redirect_by_role(current_user)
 
     if request.method == "POST":
@@ -18,6 +20,10 @@ def login():
         user = User.query.filter_by(username=username).first()
         if user and user.is_active and user.check_password(password):
             login_user(user, remember=remember)
+            # Force password change if teacher has a temporary password
+            if user.must_change_password:
+                flash("⚠️ У вас временный пароль. Пожалуйста, смените его прямо сейчас.", "warning")
+                return redirect(url_for("teacher.change_password"))
             next_page = request.args.get("next")
             return redirect(next_page or _url_by_role(user))
 

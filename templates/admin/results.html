@@ -9,9 +9,38 @@
   </div>
 </div>
 
+{% if selected_bundle %}
+<!-- Bundle filter banner -->
+<div class="alert alert-info" style="margin-bottom:16px;align-items:flex-start;gap:16px">
+  <span style="font-size:20px">📦</span>
+  <div style="flex:1">
+    <strong>Пакет: {{ selected_bundle.label or selected_bundle.pin_code }}</strong>
+    <div class="text-sm" style="margin-top:4px;opacity:.8">
+      PIN: <strong>{{ selected_bundle.pin_code }}</strong> ·
+      {{ selected_bundle.test_count }} тест(ов) ·
+      {{ pagination.total }} результатов
+    </div>
+  </div>
+  <a href="{{ url_for('admin.results') }}" class="btn btn-ghost btn-sm">✕ Снять фильтр</a>
+</div>
+{% elif selected_pin %}
+<div class="alert alert-info" style="margin-bottom:16px">
+  📌 Фильтр по PIN: <strong>{{ selected_pin }}</strong>
+  <a href="{{ url_for('admin.results') }}" class="btn btn-ghost btn-sm" style="margin-left:12px">✕ Снять</a>
+</div>
+{% endif %}
+
 <!-- Filters -->
 <div class="card mb-24">
   <form method="GET" class="flex items-center gap-12" style="flex-wrap:wrap">
+    <!-- Preserve bundle/pin filters as hidden inputs when submitting -->
+    {% if selected_bundle_id %}
+      <input type="hidden" name="bundle_id" value="{{ selected_bundle_id }}">
+    {% endif %}
+    {% if selected_pin and not selected_bundle_id %}
+      <input type="hidden" name="pin" value="{{ selected_pin }}">
+    {% endif %}
+
     <div class="form-group" style="margin:0;flex:1;min-width:180px">
       <select class="form-control" name="teacher_id" id="filter-teacher" onchange="this.form.submit()">
         <option value="">— Все учителя —</option>
@@ -37,11 +66,17 @@
       </select>
     </div>
     <button type="submit" class="btn btn-outline">Фильтр</button>
-    {% if selected_teacher or selected_grade or selected_letter %}
-      <a href="{{ url_for('admin.results') }}" class="btn btn-ghost">✕ Сбросить</a>
+    {% if selected_teacher or selected_grade or selected_letter or selected_pin or selected_bundle_id %}
+      <a href="{{ url_for('admin.results') }}" class="btn btn-ghost">✕ Сбросить всё</a>
     {% endif %}
     <div style="flex: 1"></div>
-    <a href="{{ url_for('admin.export_results', teacher_id=selected_teacher, grade=selected_grade, letter=selected_letter) }}" class="btn btn-primary" style="white-space: nowrap; border: 1px solid var(--primary-h);">
+    <a href="{{ url_for('admin.export_results',
+                        teacher_id=selected_teacher or '',
+                        grade=selected_grade,
+                        letter=selected_letter,
+                        pin=selected_pin or '',
+                        bundle_id=selected_bundle_id or '') }}"
+       class="btn btn-primary" style="white-space: nowrap; border: 1px solid var(--primary-h);">
       ⬇ Экспорт в Excel
     </a>
   </form>
@@ -77,19 +112,31 @@
   </div>
   <!-- Pagination -->
   <div class="pagination">
-    <a href="{{ url_for('admin.results', page=pagination.prev_num, teacher_id=selected_teacher, grade=selected_grade, letter=selected_letter) }}"
+    <a href="{{ url_for('admin.results', page=pagination.prev_num,
+                        teacher_id=selected_teacher, grade=selected_grade, letter=selected_letter,
+                        pin=selected_pin or '', bundle_id=selected_bundle_id or '') }}"
        class="page-btn {% if not pagination.has_prev %}disabled{% endif %}">← Пред.</a>
     {% for p in pagination.iter_pages() %}
       {% if p %}
-        <a href="{{ url_for('admin.results', page=p, teacher_id=selected_teacher, grade=selected_grade, letter=selected_letter) }}"
+        <a href="{{ url_for('admin.results', page=p,
+                            teacher_id=selected_teacher, grade=selected_grade, letter=selected_letter,
+                            pin=selected_pin or '', bundle_id=selected_bundle_id or '') }}"
            class="page-btn {% if p == pagination.page %}active{% endif %}">{{ p }}</a>
       {% else %}<span class="page-btn disabled">…</span>{% endif %}
     {% endfor %}
-    <a href="{{ url_for('admin.results', page=pagination.next_num, teacher_id=selected_teacher, grade=selected_grade, letter=selected_letter) }}"
+    <a href="{{ url_for('admin.results', page=pagination.next_num,
+                        teacher_id=selected_teacher, grade=selected_grade, letter=selected_letter,
+                        pin=selected_pin or '', bundle_id=selected_bundle_id or '') }}"
        class="page-btn {% if not pagination.has_next %}disabled{% endif %}">След. →</a>
   </div>
   {% else %}
-    <div class="empty-state"><div class="icon">📭</div><h3>Результатов нет</h3></div>
+    <div class="empty-state"><div class="icon">📭</div><h3>Результатов нет</h3>
+      {% if selected_bundle %}
+        <p>По этому пакету пока нет сданных результатов.</p>
+      {% elif selected_pin %}
+        <p>По PIN-коду <strong>{{ selected_pin }}</strong> результатов не найдено.</p>
+      {% endif %}
+    </div>
   {% endif %}
 </div>
 {% endblock %}

@@ -103,6 +103,29 @@ def edit_test(test_id: int):
     return render_template("teacher/test_edit.html", test=test)
 
 
+@teacher_bp.route("/tests/<int:test_id>/publish", methods=["POST"])
+@login_required
+def publish_test(test_id: int):
+    test = _get_own_test(test_id)
+    if test.question_count == 0:
+        flash("Нельзя опубликовать тест без вопросов.", "danger")
+        return redirect(url_for("teacher.tests"))
+    test.is_draft = False
+    db.session.commit()
+    flash(f"Тест «{test.title}» опубликован. Теперь администратор может включить его в пакет.", "success")
+    return redirect(url_for("teacher.tests"))
+
+
+@teacher_bp.route("/tests/<int:test_id>/unpublish", methods=["POST"])
+@login_required
+def unpublish_test(test_id: int):
+    test = _get_own_test(test_id)
+    test.is_draft = True
+    db.session.commit()
+    flash(f"Тест «{test.title}» снят с публикации.", "info")
+    return redirect(url_for("teacher.tests"))
+
+
 @teacher_bp.route("/tests/<int:test_id>/delete", methods=["POST"])
 @login_required
 def delete_test(test_id: int):
@@ -248,6 +271,33 @@ def result_detail(rid: int):
               .first_or_404())
     answers = result.answer_details.all()
     return render_template("teacher/result_detail.html", result=result, answers=answers)
+
+
+# ================================================================ Change password
+
+@teacher_bp.route("/change-password", methods=["GET", "POST"])
+@login_required
+def change_password():
+    """Teacher changes their temporary password (or can change anytime)."""
+    if request.method == "POST":
+        current_pw  = request.form.get("current_password", "")
+        new_pw      = request.form.get("new_password", "")
+        confirm_pw  = request.form.get("confirm_password", "")
+
+        if not current_user.check_password(current_pw):
+            flash("Текущий пароль неверный.", "danger")
+        elif len(new_pw) < 6:
+            flash("Новый пароль должен быть не менее 6 символов.", "danger")
+        elif new_pw != confirm_pw:
+            flash("Пароли не совпадают.", "danger")
+        else:
+            current_user.set_password(new_pw)
+            current_user.must_change_password = False
+            db.session.commit()
+            flash("Пароль успешно изменён.", "success")
+            return redirect(url_for("teacher.dashboard"))
+
+    return render_template("teacher/change_password.html")
 
 
 # ================================================================ Helpers

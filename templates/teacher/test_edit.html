@@ -29,7 +29,16 @@
   </div>
   <div class="flex gap-8">
     <a href="{{ url_for('teacher.tests') }}" class="btn btn-ghost">← Назад</a>
-    <a href="{{ url_for('teacher.assign_test', test_id=test.id) }}" class="btn btn-success" id="btn-assign">🔑 Назначить</a>
+    {% if test.is_draft %}
+    <form method="POST" action="{{ url_for('teacher.publish_test', test_id=test.id) }}" style="margin:0">
+      <button type="submit" class="btn btn-success" id="btn-publish">🌐 Опубликовать</button>
+    </form>
+    {% else %}
+    <form method="POST" action="{{ url_for('teacher.unpublish_test', test_id=test.id) }}" style="margin:0">
+      <button type="submit" class="btn btn-outline" id="btn-unpublish">↩ В черновик</button>
+    </form>
+    {% endif %}
+    <a href="{{ url_for('teacher.assign_test', test_id=test.id) }}" class="btn btn-primary" id="btn-assign">🔑 Назначить</a>
   </div>
 </div>
 

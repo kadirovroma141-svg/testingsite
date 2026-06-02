@@ -93,15 +93,16 @@ class User(db.Model, UserMixin):
     """
     __tablename__ = "users"
 
-    id            = db.Column(db.Integer, primary_key=True)
-    username      = db.Column(db.String(64),  unique=True, nullable=False, index=True)
-    email         = db.Column(db.String(120), unique=True, nullable=False, index=True)
-    password_hash = db.Column(db.String(256), nullable=False)
-    full_name     = db.Column(db.String(128), nullable=False)
-    role          = db.Column(db.String(16),  nullable=False, default=UserRole.TEACHER)
-    is_active     = db.Column(db.Boolean,     nullable=False, default=True)
-    created_at    = db.Column(db.DateTime(timezone=True), default=_utcnow, nullable=False)
-    updated_at    = db.Column(db.DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False)
+    id                  = db.Column(db.Integer, primary_key=True)
+    username            = db.Column(db.String(64),  unique=True, nullable=False, index=True)
+    email               = db.Column(db.String(120), unique=True, nullable=False, index=True)
+    password_hash       = db.Column(db.String(256), nullable=False)
+    full_name           = db.Column(db.String(128), nullable=False)
+    role                = db.Column(db.String(16),  nullable=False, default=UserRole.TEACHER)
+    is_active           = db.Column(db.Boolean,     nullable=False, default=True)
+    must_change_password = db.Column(db.Boolean,    nullable=False, default=False)  # True = teacher must set new password
+    created_at          = db.Column(db.DateTime(timezone=True), default=_utcnow, nullable=False)
+    updated_at          = db.Column(db.DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False)
 
     # Relationships
     tests          = db.relationship("Test",         back_populates="author",  lazy="dynamic", cascade="all, delete-orphan")

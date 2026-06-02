@@ -40,6 +40,12 @@
                   {{ '🔒 Откл.' if t.is_active else '🔓 Вкл.' }}
                 </button>
               </form>
+              <form method="POST" action="{{ url_for('admin.reset_teacher_password', uid=t.id) }}" style="display:inline"
+                    onsubmit="return confirm('Сгенерировать новый временный пароль для «{{ t.full_name }}»?')">
+                <button type="submit" class="btn btn-warning btn-sm" id="btn-reset-pw-{{ t.id }}" title="Сбросить пароль">
+                  🔑 Сбросить пароль
+                </button>
+              </form>
               <form method="POST" action="{{ url_for('admin.delete_teacher', uid=t.id) }}"
                     onsubmit="return confirm('Удалить учителя {{ t.full_name }}? Все его тесты также будут удалены!')" style="display:inline">
                 <button type="submit" class="btn btn-danger btn-sm" id="btn-del-{{ t.id }}">🗑</button>

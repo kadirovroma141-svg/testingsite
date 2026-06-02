@@ -1,4 +1,6 @@
 import io
+import random
+import string
 import openpyxl
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, make_response
 from flask_login import login_required, current_user
@@ -77,46 +79,99 @@ def delete_teacher(uid: int):
     return redirect(url_for("admin.teachers"))
 
 
+@admin_bp.route("/teachers/<int:uid>/reset-password", methods=["POST"])
+def reset_teacher_password(uid: int):
+    """Generate a temporary password and force teacher to change it on next login."""
+    user = db.session.get(User, uid)
+    if not user or user.is_admin:
+        flash("Пользователь не найден.", "danger")
+        return redirect(url_for("admin.teachers"))
+    # Generate a readable temporary password: 3 words pattern  e.g. "Kp7#mQ2x"
+    chars = string.ascii_letters + string.digits
+    temp_password = "".join(random.choices(chars, k=10))
+    user.set_password(temp_password)
+    user.must_change_password = True
+    db.session.commit()
+    flash(
+        f"Временный пароль для «{user.full_name}»: <strong>{temp_password}</strong> — передайте его учителю. При входе он будет обязан сменить его.",
+        "success"
+    )
+    return redirect(url_for("admin.teachers"))
+
+
 # ================================================================ Results
 
 @admin_bp.route("/results")
 def results():
-    page = request.args.get("page", 1, type=int)
+    page       = request.args.get("page", 1, type=int)
     teacher_id = request.args.get("teacher_id", type=int)
-    grade = request.args.get("grade", "").strip()
-    letter = request.args.get("letter", "").strip()
+    grade      = request.args.get("grade", "").strip()
+    letter     = request.args.get("letter", "").strip()
+    pin        = request.args.get("pin", "").strip()
+    bundle_id  = request.args.get("bundle_id", type=int)
 
-    query = TestResult.query.join(Test, TestResult.test_id == Test.id)
+    from sqlalchemy import or_
+    query = (TestResult.query
+             .join(Test, TestResult.test_id == Test.id)
+             .outerjoin(AssignedTest, TestResult.assigned_test_id == AssignedTest.id)
+             .outerjoin(TestBundle, TestResult.bundle_id == TestBundle.id))
+
     if teacher_id:
         query = query.filter(Test.author_id == teacher_id)
     if grade:
         query = query.filter(TestResult.student_grade == grade)
     if letter:
         query = query.filter(TestResult.student_letter == letter)
+    if bundle_id:
+        query = query.filter(TestResult.bundle_id == bundle_id)
+    elif pin:
+        query = query.filter(
+            or_(AssignedTest.pin_code == pin, TestBundle.pin_code == pin)
+        )
 
     pagination = query.order_by(TestResult.started_at.desc()).paginate(page=page, per_page=20)
     teachers_list = User.query.filter_by(role=UserRole.TEACHER).order_by(User.full_name).all()
+
+    # Resolve bundle label for display when filtering by bundle
+    selected_bundle = db.session.get(TestBundle, bundle_id) if bundle_id else None
+
     return render_template("admin/results.html",
                            pagination=pagination,
                            teachers=teachers_list,
                            selected_teacher=teacher_id,
                            selected_grade=grade,
-                           selected_letter=letter)
+                           selected_letter=letter,
+                           selected_pin=pin,
+                           selected_bundle=selected_bundle,
+                           selected_bundle_id=bundle_id)
 
 
 @admin_bp.route("/results/export")
 def export_results():
     teacher_id = request.args.get("teacher_id", type=int)
-    grade = request.args.get("grade", "").strip()
-    letter = request.args.get("letter", "").strip()
+    grade      = request.args.get("grade", "").strip()
+    letter     = request.args.get("letter", "").strip()
+    pin        = request.args.get("pin", "").strip()
+    bundle_id  = request.args.get("bundle_id", type=int)
 
-    query = TestResult.query.join(Test, TestResult.test_id == Test.id)
+    from sqlalchemy import or_
+    query = (TestResult.query
+             .join(Test, TestResult.test_id == Test.id)
+             .outerjoin(AssignedTest, TestResult.assigned_test_id == AssignedTest.id)
+             .outerjoin(TestBundle, TestResult.bundle_id == TestBundle.id))
+
     if teacher_id:
         query = query.filter(Test.author_id == teacher_id)
     if grade:
         query = query.filter(TestResult.student_grade == grade)
     if letter:
         query = query.filter(TestResult.student_letter == letter)
+    if bundle_id:
+        query = query.filter(TestResult.bundle_id == bundle_id)
+    elif pin:
+        query = query.filter(
+            or_(AssignedTest.pin_code == pin, TestBundle.pin_code == pin)
+        )
 
     all_results = query.order_by(TestResult.started_at.desc()).all()
 

@@ -59,6 +59,9 @@
         <a href="{{ url_for('teacher.results') }}" class="nav-item {% if request.endpoint == 'teacher.results' %}active{% endif %}">
           <span class="icon">📊</span> Результаты
         </a>
+        <a href="{{ url_for('teacher.change_password') }}" class="nav-item {% if request.endpoint == 'teacher.change_password' %}active{% endif %}">
+          <span class="icon">🔐</span> Сменить пароль
+        </a>
       {% endif %}
     </nav>
 
@@ -82,10 +85,15 @@
       {% for cat, msg in messages %}
         <div class="alert alert-{{ cat }}">
           {% if cat == 'success' %}✅{% elif cat == 'danger' %}❌{% elif cat == 'warning' %}⚠️{% else %}ℹ️{% endif %}
-          {{ msg }}
+          {{ msg|safe }}
         </div>
       {% endfor %}
     {% endwith %}
+    {% if current_user.is_authenticated and current_user.must_change_password %}
+    <div class="alert alert-warning" style="font-weight:600">
+      ⚠️ У вас временный пароль! <a href="{{ url_for('teacher.change_password') }}" style="color:inherit;text-decoration:underline">Смените его прямо сейчас</a>, чтобы продолжить работу.
+    </div>
+    {% endif %}
     {% block content %}{% endblock %}
   </main>
 </div>

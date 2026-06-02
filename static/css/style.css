@@ -172,6 +172,8 @@ img { max-width: 100%; }
 .btn-success:hover { filter: brightness(1.1); transform: translateY(-1px); }
 .btn-danger  { background: var(--danger);  color: #fff; }
 .btn-danger:hover { filter: brightness(1.1); }
+.btn-warning { background: var(--warning); color: #000; }
+.btn-warning:hover { filter: brightness(1.1); transform: translateY(-1px); }
 .btn-outline {
   background: transparent; color: var(--text-muted);
   border: 1px solid var(--border);
