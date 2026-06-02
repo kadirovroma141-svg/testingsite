@@ -70,3 +70,4 @@ websockets==15.0.1
 Werkzeug==3.1.8
 yarl==1.22.0
 zipp==3.23.1
+openpyxl
